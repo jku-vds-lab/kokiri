@@ -1,0 +1,15 @@
+version: '2.0'
+services:
+  kokiri:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile_dev
+      args:
+        - http_proxy
+        - HTTP_PROXY
+        - https_proxy
+        - HTTPS_PROXY
+        - no_proxy
+        - NO_PROXY
+    volumes:
+    - .:/phovea

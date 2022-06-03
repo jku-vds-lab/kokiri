@@ -1,0 +1,33 @@
+{
+  "scripts": {
+    "start": "python phovea_server --use_reloader --env dev kokiri",
+    "predocker": "npm run build",
+    "docker": "docker build -t kokiri -f deploy/Dockerfile .",
+    "docker:dev": "docker build -t kokiri -f deploy/Dockerfile_dev .",
+    "check": "flake8 --exclude=.git,venv,deploy,docs,__pycache__,node_modules",
+    "pretest": "npm run check",
+    "test": "test ! -d tests || python setup.py test",
+    "docs": "sphinx-apidoc -o docs -f ./kokiri && sphinx-build ./docs build/docs",
+    "prebuild": "node -e \"process.exit(process.env.PHOVEA_SKIP_TESTS === undefined?1:0)\" || npm run test",
+    "build": "rm -rf build/source && find . -name '*.pyc' -delete && node buildPython.js && cp -r ./kokiri build/source/",
+    "predist": "npm run build && npm run docs",
+    "dist": "python setup.py sdist bdist_wheel"
+  },
+  "name": "kokiri",
+  "description": "Cohort Comparison",
+  "homepage": "https://jku-vds-lab.at/",
+  "version": "1.0.0-SNAPSHOT",
+  "author": {
+    "name": "Klaus Eckelt",
+    "email": "Klaus.Eckelt@jku.at",
+    "url": "https://eckelt.info/"
+  },
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/jku-vds-lab/kokiri/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jku-vds-lab/kokiri.git"
+  }
+}

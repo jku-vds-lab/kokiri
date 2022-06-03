@@ -1,0 +1,16 @@
+FROM python:3.7
+
+LABEL maintainer="contact@caleydo.org"
+WORKDIR /phovea
+
+# install dependencies last step such that everything before can be cached
+COPY requirements*.txt docker_packages.txt docker_script*.sh ./
+RUN (!(test -f docker_packages.txt) || (apt-get -y update && cat docker_packages.txt | xargs apt-get install -y)) && \
+    pip install --no-cache-dir -r requirements.txt && \
+    (pip install --no-cache-dir -r requirements_dev.txt)
+RUN (!(test -f docker_script.sh) || bash ./docker_script.sh)
+
+ENV PHOVEA_ENV=dev
+ENV PHOVEA_SERVICE=kokiri
+CMD python phovea_server --use_reloader --env ${PHOVEA_ENV} ${PHOVEA_SERVICE}
+EXPOSE 80

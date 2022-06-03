@@ -1,0 +1,17 @@
+{
+  "generator-phovea": {
+    "type": "service",
+    "serviceName": "kokiri",
+    "modules": [],
+    "libraries": [],
+    "sextensions": [],
+    "unknown": {
+      "requirements": [],
+      "dockerPackages": []
+    },
+    "name": "kokiri",
+    "author": "Klaus Eckelt",
+    "today": "Fri, 03 Jun 2022 12:43:37 GMT",
+    "githubAccount": "jku-vds-lab"
+  }
+}
