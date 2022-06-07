@@ -1,20 +1,19 @@
-FROM python:3.7
+FROM python:3.10-buster
 
-LABEL maintainer="contact@caleydo.org"
+LABEL maintainer="klaus.eckelt@jku.at"
 WORKDIR /phovea
-RUN printf "from phovea_server import launch\nlaunch.run()\n" > /phovea/launch.py
 
-# install dependencies last step such that everything before can be cached
-COPY requirements*.txt docker_packages.txt docker_script*.sh ./
-RUN (!(test -s docker_packages.txt) || (apt-get update && \
-  (cat docker_packages.txt | xargs apt-get install -y))) && \
-  (pip install --no-cache-dir -r requirements.txt)
-RUN (!(test -f docker_script.sh) || (bash ./docker_script.sh))
+COPY requirements*.txt ./
+RUN (apt-get update) && \
+    (pip install --no-cache-dir -r requirements.txt) && \
+    (pip install --no-cache-dir -r requirements_dev.txt)
 
-COPY ./build/source ./
+# Create entrypoint installing the volume-mounted workspace repos
+RUN echo '#!/bin/sh\npip install --no-cache-dir --no-deps -r /phovea/requirements_workspace.txt\n$@' > /tmp/entrypoint.sh
+RUN chmod +x /tmp/entrypoint.sh
+ENTRYPOINT [ "/tmp/entrypoint.sh" ]
 
-ENV PHOVEA_ENV=production
-ENV PHOVEA_SERVICE=kokiri
-ENV PHOVEA_CONFIG_PATH=config.json
-CMD python launch.py --env ${PHOVEA_ENV} ${PHOVEA_SERVICE}
-EXPOSE 80
+# Default command is to start the server
+CMD [ "python -m uvicorn kokiri.server:app --reload --host 0.0.0.0 --port 9666" ]
+
+EXPOSE 9666

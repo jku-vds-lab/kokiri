@@ -11,5 +11,10 @@ services:
         - HTTPS_PROXY
         - no_proxy
         - NO_PROXY
+    ports:
+      - '9666:9666'
     volumes:
     - .:/phovea
+    environment:
+      - ENV=development
+      - PYTHONUNBUFFERED=1
