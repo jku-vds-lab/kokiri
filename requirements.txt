@@ -1,4 +1,5 @@
 fastapi>=0.77.1
+uvicorn[standard]==0.17.6
 duckdb>=0.3.4
 numpy>=1.2.0
 pandas>=1.4.0
