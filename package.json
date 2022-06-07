@@ -1,4 +1,14 @@
 {
+  "name": "kokiri",
+  "description": "Cohort Comparison",
+  "version": "1.0.0-SNAPSHOT",
+  "homepage": "https://jku-vds-lab.at/",
+  "author": {
+    "name": "Klaus Eckelt",
+    "email": "Klaus.Eckelt@jku.at",
+    "url": "https://eckelt.info/"
+  },
+  "license": "BSD-3-Clause",
   "scripts": {
     "start": "python phovea_server --use_reloader --env dev kokiri",
     "predocker": "npm run build",
@@ -13,16 +23,6 @@
     "predist": "npm run build && npm run docs",
     "dist": "python setup.py sdist bdist_wheel"
   },
-  "name": "kokiri",
-  "description": "Cohort Comparison",
-  "homepage": "https://jku-vds-lab.at/",
-  "version": "1.0.0-SNAPSHOT",
-  "author": {
-    "name": "Klaus Eckelt",
-    "email": "Klaus.Eckelt@jku.at",
-    "url": "https://eckelt.info/"
-  },
-  "license": "BSD-3-Clause",
   "bugs": {
     "url": "https://github.com/jku-vds-lab/kokiri/issues"
   },
