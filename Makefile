@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-pkg_src = coral
+pkg_src = kokiri
 
 flake8 = flake8 $(pkg_src) setup.py
 isort = isort $(pkg_src) setup.py
