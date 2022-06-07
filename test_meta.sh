@@ -1,5 +1,5 @@
 #!/bin/sh
-curl 'http://localhost:9666/cmp_meta/' \
+curl 'http://localhost:8080/kokiri/cmp_meta/' \
   -H 'Accept: */*' \
   -H 'Accept-Language: de,de-DE;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6' \
   -H 'Cache-Control: max-age=0' \

@@ -66,8 +66,12 @@ class CmpData(BaseModel):
 #   ]
 # }
 
+@app.get("/kokiri")
+def root():
+  return {"message": "Hello World"}
+
 # TODO replace with websocket: @app.websocket("/ws/{client_id}")
-@app.post("/cmp_meta/")
+@app.post("/kokiri/cmp_meta/")
 def cmp_meta(cmp_data: CmpData):
   con = duckdb.connect(database=config.dbName, read_only=True) # TODO check if this is the way to go for multi thread access (cursors were mentioned in a blog psot)
   frames = []
@@ -119,9 +123,9 @@ def cmp_meta(cmp_data: CmpData):
   results = rf(X_train_coded, y, columns)
 
   return StreamingResponse(encode_results(results))
-  
-  
-@app.post("/cmp_mutated/")
+
+
+@app.post("/kokiri/cmp_mutated/")
 def cmp_mutated(cmp_data: CmpData):
   con = duckdb.connect(database=config.dbName, read_only=True)
   frames = []
@@ -201,4 +205,4 @@ def create_query(cht: int, ids: list[str], exclude: list[str], table_name: str):
   return query
 
 if __name__ == "__main__":
-  uvicorn.run(app, host="0.0.0.0", port=8444)
+  uvicorn.run(app, host="0.0.0.0", port=9666)
