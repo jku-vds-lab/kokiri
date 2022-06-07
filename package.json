@@ -29,5 +29,13 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/jku-vds-lab/kokiri.git"
-  }
+  },
+  "files": [
+    "kokiri",
+    "__init__.py",
+    "__main__.py",
+    "requirements.txt",
+    "requirements_dev.txt",
+    "docker_packages.txt"
+  ]
 }
