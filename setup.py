@@ -53,7 +53,9 @@ setup(
     },
     # Include all files from the MANIFEST.in file.
     include_package_data=True,
-    package_data={},
+    package_data={
+      'kokiri': ['data/*.duckdb']
+    },
     # Although 'package_data' is the preferred approach, in some case you may
     # need to place data files outside of your packages. See:
     # http://docs.python.org/3.4/distutils/setupscript.html#installing-additional-files # noqa
