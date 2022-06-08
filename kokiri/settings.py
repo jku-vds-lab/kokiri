@@ -4,7 +4,7 @@ from pydantic import BaseSettings
 
 
 class KokiriSettings(BaseSettings):
-    dbName: str = "./kokiri/kokiri/data/genie.duckdb"
+    dbName: str = "./kokiri/data/genie.duckdb"
     logging: Dict = {
       "version": 1,
       "disable_existing_loggers": False,
