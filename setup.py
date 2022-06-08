@@ -29,7 +29,6 @@ setup(
     license=pkg["license"],
     zip_safe=False,
     entry_points={
-        "visyn.plugin": ["{0} = {0}:VisynPlugin".format(pkg["name"])],
     },
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
