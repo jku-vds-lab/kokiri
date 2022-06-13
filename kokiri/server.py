@@ -1,4 +1,4 @@
-# TODO patch sklearn if necessary https://intel.github.io/scikit-learn-intelex/
+# TODO patch sklearn if necessary https://intel.github.io/scikit-learn-intelex/ (or use skranger)
 from .settings import KokiriSettings
 
 import uvicorn # For debugging
@@ -15,9 +15,7 @@ import json
 import pandas as pd
 import duckdb
 
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.impute import SimpleImputer
 
 # h2o.init()
 # https://medium.com/tech-vision/random-forest-classification-with-h2o-python-for-beginners-b31f6e4ccf3c
@@ -76,7 +74,7 @@ def cmp_meta(cmp_data: CmpData):
   con = duckdb.connect(database=config.dbName, read_only=True) # TODO check if this is the way to go for multi thread access (cursors were mentioned in a blog psot)
   frames = []
   for i, cht_ids in enumerate(cmp_data.ids):
-    query = create_query(i, cht_ids, ['tissuename', 'tdpid'] + cmp_data.exclude, 'meta')
+    query = create_query(con, i, cht_ids, ['tissuename', 'tdpid'] + cmp_data.exclude, 'meta_table')
     df = con.execute(query).df()
     frames.append(df)
 
@@ -91,36 +89,8 @@ def cmp_meta(cmp_data: CmpData):
   X_train = X.drop(cols_to_drop, axis='columns')
   # X_train= X_train.rename(columns={"tumortype": "Tumor Type"}) to test exclusion
 
-  num_cols = X_train.select_dtypes(include=['number']).columns.tolist()
-  cat_cols = X_train.select_dtypes(include=['object']).columns.tolist()
-
-  X_train_cat = pd.DataFrame()
-  one_hot_column_names = []
-  if cat_cols.__len__() > 0:
-    # One hot encode the categorical data
-    enc = OneHotEncoder(
-      handle_unknown='ignore', # we fit and transform in one step, so the encoder wont see unknown values
-      sparse=False
-      )
-    X_train_cat = pd.DataFrame(
-                      enc.fit_transform(X_train[cat_cols]),
-                      columns=enc.get_feature_names_out(),
-                      index=df.index)
-    one_hot_column_names = enc.get_feature_names_out().tolist()
-
-  X_train_num = pd.DataFrame()
-  if num_cols.__len__() > 0:
-    num_enc = SimpleImputer(strategy='constant', fill_value=-1) # set all missing values to -1
-    X_train_num = pd.DataFrame(
-      num_enc.fit_transform(X_train[num_cols]),
-      columns=num_cols,
-      index=df.index)
-
-  X_train_coded = pd.concat([X_train_cat, X_train_num], axis=1)
-
-  columns = one_hot_column_names + num_cols
   # train the model
-  results = rf(X_train_coded, y, columns)
+  results = rf(X_train, y, X_train.columns.tolist())
 
   return StreamingResponse(encode_results(results))
 
@@ -130,7 +100,7 @@ def cmp_mutated(cmp_data: CmpData):
   con = duckdb.connect(database=config.dbName, read_only=True)
   frames = []
   for i, cht_ids in enumerate(cmp_data.ids):
-    query = create_query(i, cht_ids, ['tissuename'] + cmp_data.exclude, 'mutated')
+    query = create_query(con, i, cht_ids, ['tissuename'] + cmp_data.exclude, 'mutated_table')
     df = con.execute(query).df()
     frames.append(df)
 
@@ -141,17 +111,11 @@ def cmp_mutated(cmp_data: CmpData):
 
   # find features with same value for all samples and drop them
   nunique = X.nunique()
-  cols_to_drop = nunique[nunique <= 1].index # 0 if all are missing, 1 if ther is only one catgeory/value
+  cols_to_drop = nunique[nunique <= 1].index # 0 if all are missing, 1 if there is only one catgeory/value
   X_train = X.drop(cols_to_drop, axis='columns')
 
-  X_train_coded = X_train.replace({
-    'f': -1,
-    't': 1,
-    'na': 0
-  })
-
   # train the model
-  results = rf(X_train_coded, y, X_train_coded.columns.tolist())
+  results = rf(X_train, y, X_train.columns.tolist())
 
   return StreamingResponse(encode_results(results))
 
@@ -192,16 +156,40 @@ async def encode_results(data):
     print("caught cancelled error")
 
 
-def create_query(cht: int, ids: list[str], exclude: list[str], table_name: str):
-  # exlucde = https://github.com/duckdb/duckdb/pull/2276
+def create_query(con: duckdb.DuckDBPyConnection, cht: int, ids: list[str], exclude: list[str], table_name: str):
+  # get onehot encoded column names
+  column_query = f"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '{table_name}'"
+  table_info = con.execute(column_query).df()
+  all_columns = table_info['column_name']
+  excluded_db_columns_mask = all_columns.str.startswith(tuple(exclude)) # matches single feature columns and one hot encoded columns (e.g. 'age' and 'tumortype_*)
+  
   tissue_list = map(lambda d: d['tissuename'], ids)
   id_string_list = separator.join(f"'{id}'" for id in tissue_list)
-  query =  "SELECT * " + \
-    ("" if not exclude else f"EXCLUDE ({separator.join(exclude)}) ") + \
-    f", {cht} AS cht " + \
-    f"FROM {table_name}_table " + \
-    f"WHERE {table_name}_table.tissuename IN ({id_string_list})"
-  # logging.warning(f'Query of cohort {cht}: {query}');
+  
+  if excluded_db_columns_mask.sum()/all_columns.size > 0.5:
+    # more than half of the columns are excluded
+    # --> select remaining columns
+    select_db_columns = all_columns[~excluded_db_columns_mask].tolist()
+    select_sql = separator.join(f'"{col}"' for col in select_db_columns) # column names need to be quoted
+    logging.debug(f'select: {select_sql}')
+    query =  f"SELECT {select_sql} " + \
+      f", {cht} AS cht " + \
+      f"FROM {table_name} " + \
+      f"WHERE {table_name}.tissuename IN ({id_string_list})"
+  else:
+    # less than half of the columns are excluded
+    # --> exclude specified columns from the query
+    # exlucde = https://github.com/duckdb/duckdb/pull/2276
+    exclude_db_columns = all_columns[excluded_db_columns_mask].tolist()
+    exclude_sql = separator.join(f'"{col}"' for col in exclude_db_columns) # column names need to be quoted
+    logging.debug(f'exclude: {exclude_sql}')  
+    query =  "SELECT * " + \
+      ("" if not exclude_sql else f"EXCLUDE ({exclude_sql}) ") + \
+      f", {cht} AS cht " + \
+      f"FROM {table_name} " + \
+      f"WHERE {table_name}.tissuename IN ({id_string_list})"
+
+  logging.debug(f'Query of cohort {cht}: {query}')
   return query
 
 if __name__ == "__main__":
