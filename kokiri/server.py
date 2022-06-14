@@ -30,7 +30,7 @@ config = KokiriSettings()
 separator = ', '
 
 app = FastAPI()
-#print(f"fastapi version: {fastapi_version}")
+logging.debug(f"fastapi version: {fastapi_version}")
 
 origins = [
   "http://localhost",
@@ -126,8 +126,11 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
     "random_state":  42,
     "warm_start": True
   }
+
+  logging.info('Starting RF with features: ', ', '.join(feature_names))
   forest = RandomForestClassifier(**params)
   for i in range(batch_size, total_forest_size+1, batch_size):
+    logging.debug(f'{i}/{total_forest_size} estimators')
     forest.set_params(n_estimators=i)
     forest.fit(X, y)
     importances = [
@@ -142,7 +145,6 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
       "trees": i,
       "importances": importances, 
     }
-    print('done', i)
     yield response
 
 
@@ -153,7 +155,7 @@ async def encode_results(data):
       yield json.dumps(feature_list).encode('utf-8')
       await asyncio.sleep(0.25) # necessary to catch cancellation
   except asyncio.CancelledError:
-    print("caught cancelled error")
+    logging.info("Request was cancelled")
 
 
 def create_query(con: duckdb.DuckDBPyConnection, cht: int, ids: list[str], exclude: list[str], table_name: str):
