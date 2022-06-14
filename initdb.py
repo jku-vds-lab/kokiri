@@ -16,6 +16,7 @@ if os.path.exists(db_name):
 con = duckdb.connect(database=db_name, read_only=False)
 
 def create_meta():
+  print('--- META DATA ---')
   print('Reading data from csv file...')
   meta = pd.read_csv('data/db_exports/genie.metadata.csv', engine='pyarrow')
   meta.drop(columns=['tdpid'], inplace=True) # drop columns that are never going to get used
@@ -72,6 +73,7 @@ def create_meta():
 
 
 def create_mutated():
+  print('--- MUTATED DATA ---')
   print('Reading data from csv file...')
   mutated = pd.read_csv('data/db_exports/genie.mutated.csv', engine='pyarrow')
   print('Pivot the table...')
@@ -79,15 +81,18 @@ def create_mutated():
       index='tissuename',
       columns='symbol',
       values='aa_mutated'
-  ).reset_index()
+  )
   print('Fill and replace values...')
-  mutated_pivot.fillna('na', inplace=True)
+  mutated_pivot.fillna('na', inplace=True) # does not handle all cases, see replace below for empty values
   processed_mutated_pivot = mutated_pivot.replace({
       'f': -1,
       't': 1,
-      'na': 0
+      'na': 0,
+      '': 0  # must not be na, could also be empty, handle like na
     }) # variable is used in SQL statements below
 
+  print(processed_mutated_pivot.loc['GENIE-VICC-176620-unk-1'], 'ABL1')
+  processed_mutated_pivot.reset_index(inplace=True)
   print('Creating table...')
   con.execute("CREATE TABLE mutated_table AS SELECT * FROM processed_mutated_pivot")
   con.execute("INSERT INTO mutated_table SELECT * FROM processed_mutated_pivot")
