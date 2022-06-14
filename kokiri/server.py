@@ -1,13 +1,13 @@
 # TODO patch sklearn if necessary https://intel.github.io/scikit-learn-intelex/ (or use skranger)
 from .settings import KokiriSettings
+# from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
 
 import uvicorn # For debugging
 from typing import Dict, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from fastapi import __version__ as fastapi_version
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, conlist
 import asyncio
 import json
@@ -47,6 +47,7 @@ _log.debug(f"fastapi version: {fastapi_version}")
 
 origins = [
   "http://localhost",
+  "http://127.0.0.1",
   "http://localhost:5500",
   "http://localhost:8080",
   "http://localhost:9000",
@@ -81,30 +82,36 @@ class CmpData(BaseModel):
 def root():
   return {"message": "Hello World"}
 
-# TODO replace with websocket: @app.websocket("/ws/{client_id}")
-@app.post("/kokiri/cmp_meta/")
-def cmp_meta(cmp_data: CmpData):
+# TODO replace with custom websocket? i.e.: @app.websocket("/ws/{client_id}")
+@app.websocket("/kokiri/cmp_meta/")
+async def cmp_meta(websocket: WebSocket):
+  await websocket.accept()
+  cmp_data = await websocket.receive_json()
+
   X_train, y = load_data(cmp_data, 'meta_table')
   results = rf(X_train, y, X_train.columns.tolist())
 
-  return StreamingResponse(encode_results(results))
+  return await encode_results(websocket, results)
 
 
-@app.post("/kokiri/cmp_mutated/")
-def cmp_mutated(cmp_data: CmpData):
+@app.websocket("/kokiri/cmp_mutated/")
+async def cmp_mutated(websocket: WebSocket):
+  await websocket.accept()
+  cmp_data = await websocket.receive_json()
+
   X_train, y = load_data(cmp_data, 'mutated_table')
   results = rf(X_train, y, X_train.columns.tolist())
 
-  return StreamingResponse(encode_results(results))
+  return await encode_results(websocket, results)
 
 
 def load_data(cmp_data: CmpData, table_name):
   con = duckdb.connect(database=config.dbName, read_only=True) # TODO check if this is the way to go for multi thread access (cursors were mentioned in a blog psot)
   frames = []
   
-  _log.debug(f'Fetching data for {len(cmp_data.ids)} cohorts')
-  for i, cht_ids in enumerate(cmp_data.ids):
-    query = create_query(con, i, cht_ids, ['tissuename', 'tdpid'] + cmp_data.exclude, table_name)
+  _log.debug(f'Fetching data for {len(cmp_data["ids"])} cohorts')
+  for i, cht_ids in enumerate(cmp_data["ids"]):
+    query = create_query(con, i, cht_ids, ['tissuename', 'tdpid'] + cmp_data["exclude"], table_name)
     df = con.execute(query).df()
     frames.append(df)
     _log.debug(f'Size of {i}. cohort: {df.shape}')
@@ -152,12 +159,11 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
     yield response
 
 
-async def encode_results(data):
+async def encode_results(ws: WebSocket, data):
   try:
     for feature_list in data: # data is inside another array
-      #for feature_importance in feature_list:
-      yield json.dumps(feature_list).encode('utf-8')
-      await asyncio.sleep(0.25) # necessary to catch cancellation
+      await ws.send_json(feature_list, mode='text')
+      await asyncio.sleep(0.1) # necessary so that the json is actually sent
   except asyncio.CancelledError:
     _log.info("Request was cancelled")
 
