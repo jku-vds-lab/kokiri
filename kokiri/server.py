@@ -19,7 +19,7 @@ from sklearn.ensemble import RandomForestClassifier
 
 import warnings
 if __name__ != "__main__":
-  # Hides sklearn warning logs
+  # Hides sklearn warning logs when deployed
   # We are using warm_start=True and class_weight='balanced'
   # These should only be used together, if you train on the whole dataset (which you don't have to with warm_statrt)
   # We are currently training on the whole dataset, so we can ignore the error
@@ -84,25 +84,7 @@ def root():
 # TODO replace with websocket: @app.websocket("/ws/{client_id}")
 @app.post("/kokiri/cmp_meta/")
 def cmp_meta(cmp_data: CmpData):
-  con = duckdb.connect(database=config.dbName, read_only=True) # TODO check if this is the way to go for multi thread access (cursors were mentioned in a blog psot)
-  frames = []
-  for i, cht_ids in enumerate(cmp_data.ids):
-    query = create_query(con, i, cht_ids, ['tissuename', 'tdpid'] + cmp_data.exclude, 'meta_table')
-    df = con.execute(query).df()
-    frames.append(df)
-
-  df = pd.concat(frames)
-
-  y = df['cht']
-  X = df.drop(columns=['cht']) # drop the target column
-
-  # find features with same value for all samples and drop them
-  nunique = X.nunique()
-  cols_to_drop = nunique[nunique <= 1].index # 0 if all are missing, 1 if ther is only one catgeory/value
-  X_train = X.drop(cols_to_drop, axis='columns')
-  # X_train= X_train.rename(columns={"tumortype": "Tumor Type"}) to test exclusion
-
-  # train the model
+  X_train, y = load_data(cmp_data, 'meta_table')
   results = rf(X_train, y, X_train.columns.tolist())
 
   return StreamingResponse(encode_results(results))
@@ -110,28 +92,36 @@ def cmp_meta(cmp_data: CmpData):
 
 @app.post("/kokiri/cmp_mutated/")
 def cmp_mutated(cmp_data: CmpData):
-  con = duckdb.connect(database=config.dbName, read_only=True)
+  X_train, y = load_data(cmp_data, 'mutated_table')
+  results = rf(X_train, y, X_train.columns.tolist())
+
+  return StreamingResponse(encode_results(results))
+
+
+def load_data(cmp_data: CmpData, table_name):
+  con = duckdb.connect(database=config.dbName, read_only=True) # TODO check if this is the way to go for multi thread access (cursors were mentioned in a blog psot)
   frames = []
+  
+  _log.debug(f'Fetching data for {len(cmp_data.ids)} cohorts')
   for i, cht_ids in enumerate(cmp_data.ids):
-    query = create_query(con, i, cht_ids, ['tissuename'] + cmp_data.exclude, 'mutated_table')
+    query = create_query(con, i, cht_ids, ['tissuename', 'tdpid'] + cmp_data.exclude, table_name)
     df = con.execute(query).df()
     frames.append(df)
-    _log.info(f'Size of {i}. cohort: {df.shape}')
+    _log.debug(f'Size of {i}. cohort: {df.shape}')
 
+  _log.debug(f'Concat cohort dataframes')
   df = pd.concat(frames)
 
   y = df['cht']
   X = df.drop(columns=['cht']) # drop the target column
 
+  _log.debug(f'Drop columns with constant data')
   # find features with same value for all samples and drop them
   nunique = X.nunique()
-  cols_to_drop = nunique[nunique <= 1].index # 0 if all are missing, 1 if there is only one catgeory/value
+  cols_to_drop = nunique[nunique <= 1].index # 0 if all are missing, 1 if ther is only one catgeory/value
   X_train = X.drop(cols_to_drop, axis='columns')
-
-  # train the model
-  results = rf(X_train, y, X_train.columns.tolist())
-
-  return StreamingResponse(encode_results(results))
+  # X_train= X_train.rename(columns={"tumortype": "Tumor Type"}) to test exclusion
+  return X_train, y
 
 # never ending generator for our streaming response
 def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
