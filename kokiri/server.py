@@ -22,7 +22,12 @@ from sklearn.ensemble import RandomForestClassifier
 # https://www.kaggle.com/code/nanomathias/h2o-distributed-random-forest-starter/script
 
 import logging
-import time
+_log = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('{levelname:<9s} {message}', style='{')
+handler.setFormatter(formatter)
+_log.addHandler(handler)
+_log.setLevel(logging.DEBUG)
 
 __author__ = 'Klaus Eckelt'
 
@@ -30,7 +35,7 @@ config = KokiriSettings()
 separator = ', '
 
 app = FastAPI()
-logging.debug(f"fastapi version: {fastapi_version}")
+_log.debug(f"fastapi version: {fastapi_version}")
 
 origins = [
   "http://localhost",
@@ -103,6 +108,7 @@ def cmp_mutated(cmp_data: CmpData):
     query = create_query(con, i, cht_ids, ['tissuename'] + cmp_data.exclude, 'mutated_table')
     df = con.execute(query).df()
     frames.append(df)
+    _log.info('Comparing')
 
   df = pd.concat(frames)
 
@@ -127,10 +133,10 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
     "warm_start": True
   }
 
-  logging.info('Starting RF with features: ', ', '.join(feature_names))
+  _log.info('Starting RF with features: ', ', '.join(feature_names))
   forest = RandomForestClassifier(**params)
   for i in range(batch_size, total_forest_size+1, batch_size):
-    logging.debug(f'{i}/{total_forest_size} estimators')
+    _log.debug(f'{i}/{total_forest_size} estimators')
     forest.set_params(n_estimators=i)
     forest.fit(X, y)
     importances = [
@@ -155,7 +161,7 @@ async def encode_results(data):
       yield json.dumps(feature_list).encode('utf-8')
       await asyncio.sleep(0.25) # necessary to catch cancellation
   except asyncio.CancelledError:
-    logging.info("Request was cancelled")
+    _log.info("Request was cancelled")
 
 
 def create_query(con: duckdb.DuckDBPyConnection, cht: int, ids: list[str], exclude: list[str], table_name: str):
@@ -173,7 +179,7 @@ def create_query(con: duckdb.DuckDBPyConnection, cht: int, ids: list[str], exclu
     # --> select remaining columns
     select_db_columns = all_columns[~excluded_db_columns_mask].tolist()
     select_sql = separator.join(f'"{col}"' for col in select_db_columns) # column names need to be quoted
-    logging.debug(f'select: {select_sql}')
+    _log.debug(f'select: {select_sql}')
     query =  f"SELECT {select_sql} " + \
       f", {cht} AS cht " + \
       f"FROM {table_name} " + \
@@ -184,14 +190,14 @@ def create_query(con: duckdb.DuckDBPyConnection, cht: int, ids: list[str], exclu
     # exlucde = https://github.com/duckdb/duckdb/pull/2276
     exclude_db_columns = all_columns[excluded_db_columns_mask].tolist()
     exclude_sql = separator.join(f'"{col}"' for col in exclude_db_columns) # column names need to be quoted
-    logging.debug(f'exclude: {exclude_sql}')  
+    _log.debug(f'exclude: {exclude_sql}')  
     query =  "SELECT * " + \
       ("" if not exclude_sql else f"EXCLUDE ({exclude_sql}) ") + \
       f", {cht} AS cht " + \
       f"FROM {table_name} " + \
       f"WHERE {table_name}.tissuename IN ({id_string_list})"
 
-  logging.debug(f'Query of cohort {cht}: {query}')
+  _log.debug(f'Query of cohort {cht}: {query}')
   return query
 
 if __name__ == "__main__":
