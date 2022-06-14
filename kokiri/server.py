@@ -116,7 +116,7 @@ def cmp_mutated(cmp_data: CmpData):
     query = create_query(con, i, cht_ids, ['tissuename'] + cmp_data.exclude, 'mutated_table')
     df = con.execute(query).df()
     frames.append(df)
-    _log.info('Comparing')
+    _log.info(f'Size of {i}. cohort: {df.shape}')
 
   df = pd.concat(frames)
 
