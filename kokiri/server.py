@@ -17,6 +17,14 @@ import duckdb
 
 from sklearn.ensemble import RandomForestClassifier
 
+import warnings
+if __name__ != "__main__":
+  # Hides sklearn warning logs
+  # We are using warm_start=True and class_weight='balanced'
+  # These should only be used together, if you train on the whole dataset (which you don't have to with warm_statrt)
+  # We are currently training on the whole dataset, so we can ignore the error
+  warnings.simplefilter('ignore', category=UserWarning)
+
 # h2o.init()
 # https://medium.com/tech-vision/random-forest-classification-with-h2o-python-for-beginners-b31f6e4ccf3c
 # https://www.kaggle.com/code/nanomathias/h2o-distributed-random-forest-starter/script
@@ -133,7 +141,7 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
     "warm_start": True
   }
 
-  _log.info('Starting RF with features: ', ', '.join(feature_names))
+  _log.info('Starting RF with features: '+', '.join(feature_names))
   forest = RandomForestClassifier(**params)
   for i in range(batch_size, total_forest_size+1, batch_size):
     _log.debug(f'{i}/{total_forest_size} estimators')
