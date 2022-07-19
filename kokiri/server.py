@@ -92,7 +92,6 @@ async def cmp_meta(websocket: WebSocket):
 
   X_train, y, meta = load_data(cmp_data, 'meta_table')
   results = rf(X_train, y, X_train.columns.tolist())
-
   final_model = await encode_results(websocket, results)
   await embed(websocket, X_train, y, meta, final_model)
 
