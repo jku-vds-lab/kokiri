@@ -1,6 +1,6 @@
 # TODO patch sklearn if necessary https://intel.github.io/scikit-learn-intelex/ (or use skranger)
-from .settings import KokiriSettings
-# from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
+#from .settings import KokiriSettings
+from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
 
 import uvicorn # For debugging
 from typing import Dict, Optional
@@ -16,6 +16,9 @@ import pandas as pd
 import duckdb
 
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+
+from umap import UMAP
 
 import warnings
 if __name__ != "__main__":
@@ -82,16 +85,19 @@ class CmpData(BaseModel):
 def root():
   return {"message": "Hello World"}
 
-# TODO replace with custom websocket? i.e.: @app.websocket("/ws/{client_id}")
 @app.websocket("/kokiri/cmp_meta/")
 async def cmp_meta(websocket: WebSocket):
   await websocket.accept()
   cmp_data = await websocket.receive_json()
 
-  X_train, y = load_data(cmp_data, 'meta_table')
+  X_train, y, meta = load_data(cmp_data, 'meta_table')
   results = rf(X_train, y, X_train.columns.tolist())
 
-  return await encode_results(websocket, results)
+  final_model = await encode_results(websocket, results)
+  await embed(websocket, X_train, y, meta, final_model)
+
+  return 
+
 
 
 @app.websocket("/kokiri/cmp_mutated/")
@@ -99,10 +105,11 @@ async def cmp_mutated(websocket: WebSocket):
   await websocket.accept()
   cmp_data = await websocket.receive_json()
 
-  X_train, y = load_data(cmp_data, 'mutated_table')
+  X_train, y, meta = load_data(cmp_data, 'mutated_table')
   results = rf(X_train, y, X_train.columns.tolist())
-
-  return await encode_results(websocket, results)
+  final_model = await encode_results(websocket, results)
+  await embed(websocket, X_train, y, meta, final_model)
+  return 
 
 
 def load_data(cmp_data: CmpData, table_name):
@@ -111,7 +118,7 @@ def load_data(cmp_data: CmpData, table_name):
   
   _log.debug(f'Fetching data for {len(cmp_data["ids"])} cohorts')
   for i, cht_ids in enumerate(cmp_data["ids"]):
-    query = create_query(con, i, cht_ids, ['tissuename', 'tdpid'] + cmp_data["exclude"], table_name)
+    query = create_query(con, i, cht_ids, ['tdpid'] + cmp_data["exclude"], table_name)
     df = con.execute(query).df()
     frames.append(df)
     _log.debug(f'Size of {i}. cohort: {df.shape}')
@@ -120,7 +127,8 @@ def load_data(cmp_data: CmpData, table_name):
   df = pd.concat(frames)
 
   y = df['cht']
-  X = df.drop(columns=['cht']) # drop the target column
+  X = df.drop(columns=['tissuename', 'cht']) # drop the target column
+  meta = df[['tissuename', 'cht']]
 
   _log.debug(f'Drop columns with constant data')
   # find features with same value for all samples and drop them
@@ -128,10 +136,10 @@ def load_data(cmp_data: CmpData, table_name):
   cols_to_drop = nunique[nunique <= 1].index # 0 if all are missing, 1 if ther is only one catgeory/value
   X_train = X.drop(cols_to_drop, axis='columns')
   # X_train= X_train.rename(columns={"tumortype": "Tumor Type"}) to test exclusion
-  return X_train, y
+  return X_train, y, meta
 
 # never ending generator for our streaming response
-def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
+def rf(X, y, feature_names, batch_size=25, total_forest_size=200):
   params = {
     "class_weight": 'balanced',
     "random_state":  42,
@@ -142,8 +150,14 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
   forest = RandomForestClassifier(**params)
   for i in range(batch_size, total_forest_size+1, batch_size):
     _log.debug(f'{i}/{total_forest_size} estimators')
-    forest.set_params(n_estimators=i)
-    forest.fit(X, y)
+    forest = forest.set_params(n_estimators=i)
+    forest = forest.fit(X, y)
+    score = forest.score(X, y)
+    # y_pred = forest.predict(X)
+    # acc = accuracy_score(y, y_pred)
+    # _log.debug(f'{acc} accuracy_score')
+    _log.debug(f'{score} score')
+    _log.debug(f'{len(forest.estimators_)} estimators')
     importances = [
       {
         'attribute': name[:name.rindex('_')] if '_' in name else name,
@@ -151,22 +165,39 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
         'importance': round(importance, 3)
       } for name,importance in zip(feature_names, forest.feature_importances_)
     ]
-    #importances.sort(reverse=True)
     response = {
       "trees": i,
+      "accuracy": score,
       "importances": importances, 
     }
-    yield response
-
+    yield response, forest
 
 async def encode_results(ws: WebSocket, data):
+  final_model = None
   try:
-    for feature_list in data: # data is inside another array
+    for feature_list, model in data: # data is inside another array
       await ws.send_json(feature_list, mode='text')
+      final_model = model
       await asyncio.sleep(0.1) # necessary so that the json is actually sent
   except asyncio.CancelledError:
     _log.info("Request was cancelled")
+  return final_model
 
+
+
+# kudos https://github.com/gdmarmerola/forest-embeddings
+async def embed(ws, X_train, y, meta, final_model):
+    leaves = final_model.apply(X_train)
+    await asyncio.sleep(0.1)
+    embedding = UMAP(metric='hamming', init='random').fit_transform(leaves, y)
+    df_xy = pd.DataFrame(
+            embedding,
+            columns=['x','y'],
+            index=X_train.index.copy())
+    df_plot = pd.concat([df_xy, meta],axis=1)
+    await ws.send_json({
+      "embedding": df_plot.to_json(orient='records')
+    }, mode='text')
 
 def create_query(con: duckdb.DuckDBPyConnection, cht: int, ids: list[str], exclude: list[str], table_name: str):
   # get onehot encoded column names
