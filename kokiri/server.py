@@ -138,9 +138,11 @@ def load_data(cmp_data: CmpData, table_name):
   return X_train, y, meta
 
 # never ending generator for our streaming response
-def rf(X, y, feature_names, batch_size=25, total_forest_size=200):
+def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
   params = {
     "class_weight": 'balanced',
+    "n_jobs": -1,
+    "max_depth": 8,
     "random_state":  42,
     "warm_start": True
   }
