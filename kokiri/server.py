@@ -93,8 +93,7 @@ async def cmp_meta(websocket: WebSocket):
   X_train, y, meta = load_data(cmp_data, 'meta_table')
   results = rf(X_train, y, X_train.columns.tolist())
   final_model = await encode_results(websocket, results)
-  await embed(websocket, X_train, y, meta, final_model)
-
+  await embed(websocket, X_train, y, meta, final_model, 'prediction')
   return 
 
 
@@ -107,7 +106,9 @@ async def cmp_mutated(websocket: WebSocket):
   X_train, y, meta = load_data(cmp_data, 'mutated_table')
   results = rf(X_train, y, X_train.columns.tolist())
   final_model = await encode_results(websocket, results)
-  await embed(websocket, X_train, y, meta, final_model)
+  await embed(websocket, X_train, y, meta, final_model, 'prediction')
+  # await embed(websocket, X_train, y, meta, final_model, 'leaves')
+  # await embed(websocket, X_train, y, meta, final_model, 'data')
   return 
 
 
@@ -182,16 +183,25 @@ async def encode_results(ws: WebSocket, data):
 
 
 # kudos https://github.com/gdmarmerola/forest-embeddings
-async def embed(ws, X_train, y, meta, final_model):
-    leaves = final_model.apply(X_train)
+async def embed(ws, X_train, y, meta, final_model, data='prediction'):
     await asyncio.sleep(0.1)
-    embedding = UMAP(metric='hamming', init='random').fit_transform(leaves, y)
+
+    if data == 'prediction':
+      prediction = final_model.predict_proba(X_train)
+      embedding = UMAP(metric='euclidean', init='random').fit_transform(prediction, y)
+    elif data == 'leaves':
+      leaves = final_model.apply(X_train)
+      embedding = UMAP(metric='hamming', init='random').fit_transform(leaves, y)
+    elif data == 'data':
+      embedding = UMAP(metric='euclidean', init='random').fit_transform(X_train, y)
+
     df_xy = pd.DataFrame(
             embedding,
             columns=['x','y'],
             index=X_train.index.copy())
     df_plot = pd.concat([df_xy, meta],axis=1)
     await ws.send_json({
+      "data": data,
       "embedding": df_plot.to_json(orient='records')
     }, mode='text')
 
