@@ -15,7 +15,7 @@ import json
 import pandas as pd
 import duckdb
 
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn.metrics import accuracy_score
 
 from umap import UMAP
@@ -148,17 +148,12 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
   }
 
   _log.info('Starting RF with features: '+', '.join(feature_names))
-  forest = RandomForestClassifier(**params)
+  forest = ExtraTreesClassifier(**params)
   for i in range(batch_size, total_forest_size+1, batch_size):
-    _log.debug(f'{i}/{total_forest_size} estimators')
     forest = forest.set_params(n_estimators=i)
     forest = forest.fit(X, y)
     score = forest.score(X, y)
-    # y_pred = forest.predict(X)
-    # acc = accuracy_score(y, y_pred)
-    # _log.debug(f'{acc} accuracy_score')
-    _log.debug(f'{score} score')
-    _log.debug(f'{len(forest.estimators_)} estimators')
+    _log.debug(f'{len(forest.estimators_)}/{total_forest_size} estimators. Score: {score}')
     importances = [
       {
         'attribute': name[:name.rindex('_')] if '_' in name else name,
