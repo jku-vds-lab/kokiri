@@ -1,6 +1,6 @@
 # TODO patch sklearn if necessary https://intel.github.io/scikit-learn-intelex/ (or use skranger)
-from .settings import KokiriSettings
-# from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
+#from .settings import KokiriSettings
+from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
 
 import uvicorn # For debugging
 from typing import Dict, Optional
@@ -93,7 +93,7 @@ async def cmp_meta(websocket: WebSocket):
   X_train, y, meta = load_data(cmp_data, 'meta_table')
   results = rf(X_train, y, X_train.columns.tolist())
   final_model = await encode_results(websocket, results)
-  await embed(websocket, X_train, y, meta, final_model, 'prediction')
+  await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
   return 
 
 
@@ -106,9 +106,7 @@ async def cmp_mutated(websocket: WebSocket):
   X_train, y, meta = load_data(cmp_data, 'mutated_table')
   results = rf(X_train, y, X_train.columns.tolist())
   final_model = await encode_results(websocket, results)
-  await embed(websocket, X_train, y, meta, final_model, 'prediction')
-  # await embed(websocket, X_train, y, meta, final_model, 'leaves')
-  # await embed(websocket, X_train, y, meta, final_model, 'data')
+  await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
   return 
 
 
@@ -143,7 +141,8 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
   params = {
     "class_weight": 'balanced',
     "n_jobs": -1,
-    "max_depth": 8,
+    "max_depth": 40, 
+    "min_samples_leaf": 5,
     "random_state":  42,
     "warm_start": True
   }
@@ -183,17 +182,17 @@ async def encode_results(ws: WebSocket, data):
 
 
 # kudos https://github.com/gdmarmerola/forest-embeddings
-async def embed(ws, X_train, y, meta, final_model, data='prediction'):
+async def embed(ws, X_train, y, meta, final_model, data='prediction', metric="euclidean"):
     await asyncio.sleep(0.1)
 
     if data == 'prediction':
       prediction = final_model.predict_proba(X_train)
-      embedding = UMAP(metric='euclidean', init='random').fit_transform(prediction, y)
+      embedding = UMAP(metric=metric, init='random').fit_transform(prediction, y)
     elif data == 'leaves':
       leaves = final_model.apply(X_train)
-      embedding = UMAP(metric='hamming', init='random').fit_transform(leaves, y)
+      embedding = UMAP(metric=metric, init='random').fit_transform(leaves, y)
     elif data == 'data':
-      embedding = UMAP(metric='euclidean', init='random').fit_transform(X_train, y)
+      embedding = UMAP(metric=metric, init='random').fit_transform(X_train, y)
 
     df_xy = pd.DataFrame(
             embedding,
