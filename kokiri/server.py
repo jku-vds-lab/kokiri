@@ -1,6 +1,6 @@
 # TODO patch sklearn if necessary https://intel.github.io/scikit-learn-intelex/ (or use skranger)
-#from .settings import KokiriSettings
-from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
+from .settings import KokiriSettings
+#from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
 
 import uvicorn # For debugging
 from typing import Dict, Optional
