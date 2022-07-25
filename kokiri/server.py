@@ -202,12 +202,12 @@ async def embed(ws, X_train, y, meta, final_model, data='prediction', metric="eu
 
     if data == 'prediction':
       prediction = final_model.predict_proba(X_train)
-      embedding = UMAP(metric=metric, init='random').fit_transform(prediction, y)
+      embedding = UMAP(metric=metric, init='random', verbose=True).fit_transform(prediction, y)
     elif data == 'leaves':
       leaves = final_model.apply(X_train)
-      embedding = UMAP(metric=metric, init='random').fit_transform(leaves, y)
+      embedding = UMAP(metric=metric, init='random', verbose=True).fit_transform(leaves, y)
     elif data == 'data':
-      embedding = UMAP(metric=metric, init='random').fit_transform(X_train, y)
+      embedding = UMAP(metric=metric, init='random', verbose=True).fit_transform(X_train, y)
 
     df_xy = pd.DataFrame(
             embedding,
