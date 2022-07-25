@@ -67,6 +67,9 @@ app.add_middleware(
 
 class CmpData(BaseModel):
   exclude: Optional[list[str]] = None
+  n_estimators: Optional[int] = None
+  max_depth: Optional[int] = None
+  min_samples_leaf: Optional[int] = None
   ids: conlist( # list of cohorts # TODO replace with list of cohort IDs
     conlist(Dict, min_items=1), # list of item (must not be empty)
     min_items=2 # at least two cohorts are needed to compare
@@ -91,7 +94,11 @@ async def cmp_meta(websocket: WebSocket):
   cmp_data = await websocket.receive_json()
 
   X_train, y, meta = load_data(cmp_data, 'meta_table')
-  results = rf(X_train, y, X_train.columns.tolist())
+  results = rf(X_train, y, X_train.columns.tolist(), 25,
+    cmp_data["n_estimators"],
+    cmp_data["max_depth"],
+    cmp_data["min_samples_leaf"] # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
+  )
   final_model = await encode_results(websocket, results)
   await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
   return 
@@ -104,7 +111,11 @@ async def cmp_mutated(websocket: WebSocket):
   cmp_data = await websocket.receive_json()
 
   X_train, y, meta = load_data(cmp_data, 'mutated_table')
-  results = rf(X_train, y, X_train.columns.tolist())
+  results = rf(X_train, y, X_train.columns.tolist(), 25,
+    cmp_data["n_estimators"],
+    cmp_data["max_depth"],
+    cmp_data["min_samples_leaf"] # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
+  )
   final_model = await encode_results(websocket, results)
   await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
   return 
@@ -137,23 +148,26 @@ def load_data(cmp_data: CmpData, table_name):
   return X_train, y, meta
 
 # never ending generator for our streaming response
-def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
+def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, min_samples_leaf=5):
   params = {
     "class_weight": 'balanced',
     "n_jobs": -1,
-    "max_depth": 40, 
-    "min_samples_leaf": 5,
+    "max_depth": max_depth, 
+    "min_samples_leaf": min_samples_leaf,
+    "oob_score": True,
+    "bootstrap": True, # necessary for oob_score --> default: True for Random Forest, False for Extremely Random Forest
     "random_state":  42,
     "warm_start": True
   }
 
   _log.info('Starting RF with features: '+', '.join(feature_names))
-  forest = ExtraTreesClassifier(**params)
+  forest = RandomForestClassifier(**params)
   for i in range(batch_size, total_forest_size+1, batch_size):
     forest = forest.set_params(n_estimators=i)
     forest = forest.fit(X, y)
     score = forest.score(X, y)
-    _log.debug(f'{len(forest.estimators_)}/{total_forest_size} estimators. Score: {score}')
+    oobError = forest.oob_score_
+    _log.debug(f'{len(forest.estimators_)}/{total_forest_size} estimators. Score: {oobError}')
     importances = [
       {
         'attribute': name[:name.rindex('_')] if '_' in name else name,
@@ -164,7 +178,8 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500):
     response = {
       "trees": i,
       "accuracy": score,
-      "importances": importances, 
+      "oobError": oobError,
+      "importances": importances
     }
     yield response, forest
 
