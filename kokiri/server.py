@@ -10,8 +10,10 @@ from fastapi import __version__ as fastapi_version
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, conlist
 import asyncio
-import json
 
+import random
+
+import numpy as np
 import pandas as pd
 import duckdb
 
@@ -175,7 +177,8 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, 
       {
         'attribute': name[:name.rindex('_')] if '_' in name else name,
         'category': name[name.rindex('_')+1:] if '_' in name else None,
-        'importance': round(importance, 3)
+        'importance': round(importance, 3),
+        'distribution': [{'cht': cht, 'value': random.random()} for cht in np.unique(y).tolist()]
       } for name,importance in zip(feature_names, forest.feature_importances_)
     ]
     response = {
