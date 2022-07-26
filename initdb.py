@@ -69,7 +69,7 @@ def create_meta():
 
   print('Creating table...')
   con.execute("CREATE TABLE meta_table AS SELECT * FROM meta_processed")  # FROM <variable name>
-  con.execute("INSERT INTO meta_table SELECT * FROM meta_processed")
+  #con.execute("INSERT INTO meta_table SELECT * FROM meta_processed")
 
 
 def create_mutated():
@@ -95,7 +95,7 @@ def create_mutated():
   processed_mutated_pivot.reset_index(inplace=True)
   print('Creating table...')
   con.execute("CREATE TABLE mutated_table AS SELECT * FROM processed_mutated_pivot")
-  con.execute("INSERT INTO mutated_table SELECT * FROM processed_mutated_pivot")
+  #con.execute("INSERT INTO mutated_table SELECT * FROM processed_mutated_pivot")
 
 create_meta()
 create_mutated()
