@@ -178,7 +178,8 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, 
         'attribute': name[:name.rindex('_')] if '_' in name else name,
         'category': name[name.rindex('_')+1:] if '_' in name else None,
         'importance': round(importance, 3),
-        'distribution': [{'cht': cht, 'value': random.random()} for cht in np.unique(y).tolist()]
+        'distribution': [{'cht': '#'+str(cht), 'value': random.random()} for cht in np.unique(y).tolist()],
+        'random': True if i >= 100 else False
       } for name,importance in zip(feature_names, forest.feature_importances_)
     ]
     response = {
