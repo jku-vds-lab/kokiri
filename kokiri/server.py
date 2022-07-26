@@ -1,6 +1,6 @@
 # TODO patch sklearn if necessary https://intel.github.io/scikit-learn-intelex/ (or use skranger)
-from .settings import KokiriSettings
-#from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
+#from .settings import KokiriSettings
+from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
 
 import uvicorn # For debugging
 from typing import Dict, Optional
@@ -27,6 +27,8 @@ if __name__ != "__main__":
   # These should only be used together, if you train on the whole dataset (which you don't have to with warm_statrt)
   # We are currently training on the whole dataset, so we can ignore the error
   warnings.simplefilter('ignore', category=UserWarning)
+
+warnings.simplefilter('ignore', category=UserWarning)
 
 # h2o.init()
 # https://medium.com/tech-vision/random-forest-classification-with-h2o-python-for-beginners-b31f6e4ccf3c
@@ -129,8 +131,8 @@ def load_data(cmp_data: CmpData, table_name):
   for i, cht_ids in enumerate(cmp_data["ids"]):
     query = create_query(con, i, cht_ids, ['tdpid'] + cmp_data["exclude"], table_name)
     df = con.execute(query).df()
-    frames.append(df)
     _log.debug(f'Size of {i}. cohort: {df.shape}')
+    frames.append(df)
 
   _log.debug(f'Concat cohort dataframes')
   df = pd.concat(frames)
@@ -152,7 +154,8 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, 
   params = {
     "class_weight": 'balanced',
     "n_jobs": -1,
-    "max_depth": max_depth, 
+    "max_depth": max_depth,
+    "max_features": 0.8,
     "min_samples_leaf": min_samples_leaf,
     "oob_score": True,
     "bootstrap": True, # necessary for oob_score --> default: True for Random Forest, False for Extremely Random Forest
@@ -252,7 +255,7 @@ def create_query(con: duckdb.DuckDBPyConnection, cht: int, ids: list[str], exclu
       f"FROM {table_name} " + \
       f"WHERE {table_name}.tissuename IN ({id_string_list})"
 
-  _log.debug(f'Query of cohort {cht}: {query}')
+  #_log.debug(f'Query of cohort {cht}: {query}')
   return query
 
 if __name__ == "__main__":
