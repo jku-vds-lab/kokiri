@@ -11,8 +11,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, conlist
 import asyncio
 
-import random
-
 import numpy as np
 import pandas as pd
 import duckdb
@@ -101,10 +99,11 @@ async def cmp_meta(websocket: WebSocket):
   results = rf(X_train, y, X_train.columns.tolist(), 25,
     cmp_data["n_estimators"],
     cmp_data["max_depth"],
-    cmp_data["min_samples_leaf"] # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
+    cmp_data["min_samples_leaf"], # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
+    False
   )
   final_model = await encode_results(websocket, results)
-  await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
+  # await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
   return 
 
 
@@ -118,10 +117,11 @@ async def cmp_mutated(websocket: WebSocket):
   results = rf(X_train, y, X_train.columns.tolist(), 25,
     cmp_data["n_estimators"],
     cmp_data["max_depth"],
-    cmp_data["min_samples_leaf"] # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
+    cmp_data["min_samples_leaf"], # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
+    True
   )
   final_model = await encode_results(websocket, results)
-  await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
+  # await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
   return 
 
 
@@ -152,7 +152,7 @@ def load_data(cmp_data: CmpData, table_name):
   return X_train, y, meta
 
 # never ending generator for our streaming response
-def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, min_samples_leaf=5):
+def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, min_samples_leaf=5, remove_unknown=False):
   params = {
     "class_weight": 'balanced',
     "n_jobs": -1,
@@ -172,14 +172,22 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, 
     forest = forest.fit(X, y)
     score = forest.score(X, y)
     oobError = forest.oob_score_
+    importance_threshold = 0.005
     _log.debug(f'{len(forest.estimators_)}/{total_forest_size} estimators. Score: {oobError}')
     importances = [
       {
         'attribute': name[:name.rindex('_')] if '_' in name else name,
         'category': name[name.rindex('_')+1:] if '_' in name else None,
         'importance': round(importance, 3),
-        'distribution': [{'cht': '#'+str(cht), 'value': random.random()} for cht in np.unique(y).tolist()],
-        'random': True if i >= 100 else False
+        'distribution': [
+          {
+            'cht': '#'+str(cht),
+             # sum of 1s in column divided by cohort size
+            'value': round(X[name][(y == cht) &(X[name]>=0)].sum()/(X[name].abs()[y == cht].sum() if remove_unknown else (y==cht).sum()), 3) if i >= 100 and round(importance, 3) >= importance_threshold else 1 # todo handle meta and mutated cases
+          } for cht in np.unique(y).tolist()
+        ],
+        'random': True if i <= 100 or round(importance, 3) < importance_threshold else False,
+        'type': 'cat' if X[name].isin([-1,0,1]).all() else 'num'
       } for name,importance in zip(feature_names, forest.feature_importances_)
     ]
     response = {
