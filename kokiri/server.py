@@ -183,7 +183,7 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, 
           {
             'cht': '#'+str(cht),
              # sum of 1s in column divided by cohort size
-            'value': round(X[name][(y == cht) &(X[name]>=0)].sum()/(X[name].abs()[y == cht].sum() if remove_unknown else (y==cht).sum()), 3) if i >= 100 and round(importance, 3) >= importance_threshold else 1 # todo handle meta and mutated cases
+            'value': round(X[name][(y == cht) &(X[name]>=0)].sum()/(X[name].abs()[y == cht].sum() if remove_unknown else (y==cht).sum()), 3) if i > 100 and round(importance, 3) >= importance_threshold else 1 # todo handle meta and mutated cases
           } for cht in np.unique(y).tolist()
         ],
         'random': True if i <= 100 or round(importance, 3) < importance_threshold else False,
