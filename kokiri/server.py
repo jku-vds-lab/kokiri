@@ -16,7 +16,7 @@ import pandas as pd
 import duckdb
 
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix
 
 from umap import UMAP
 
@@ -171,6 +171,7 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, 
     forest = forest.set_params(n_estimators=i)
     forest = forest.fit(X, y)
     score = forest.score(X, y)
+    conf = confusion_matrix(y, forest.predict(X), normalize='pred') # normalize='pred' to get percentages per row/cohort
     oobError = forest.oob_score_
     importance_threshold = 0.005
     _log.debug(f'{len(forest.estimators_)}/{total_forest_size} estimators. Score: {oobError}')
@@ -194,6 +195,7 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, 
       "trees": i,
       "accuracy": score,
       "oobError": oobError,
+      "confusionMatrix": conf.tolist(),
       "importances": importances
     }
     yield response, forest
