@@ -156,7 +156,7 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, 
   params = {
     "class_weight": 'balanced',
     "n_jobs": -1,
-    "max_depth": max_depth,
+    "max_depth": max_depth if max_depth < 100 else None,
     "max_features": 0.8,
     "min_samples_leaf": min_samples_leaf,
     "oob_score": True,
