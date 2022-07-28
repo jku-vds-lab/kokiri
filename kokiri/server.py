@@ -103,7 +103,7 @@ async def cmp_meta(websocket: WebSocket):
     False
   )
   final_model = await encode_results(websocket, results)
-  # await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
+  await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
   return 
 
 
@@ -121,7 +121,7 @@ async def cmp_mutated(websocket: WebSocket):
     True
   )
   final_model = await encode_results(websocket, results)
-  # await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
+  await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
   return 
 
 
