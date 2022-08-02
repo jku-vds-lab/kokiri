@@ -1,6 +1,6 @@
 # TODO patch sklearn if necessary https://intel.github.io/scikit-learn-intelex/ (or use skranger)
-#from .settings import KokiriSettings
-from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
+from .settings import KokiriSettings
+#from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
 
 import uvicorn # For debugging
 from typing import Dict, Optional
@@ -27,8 +27,6 @@ if __name__ != "__main__":
   # These should only be used together, if you train on the whole dataset (which you don't have to with warm_statrt)
   # We are currently training on the whole dataset, so we can ignore the error
   warnings.simplefilter('ignore', category=UserWarning)
-
-warnings.simplefilter('ignore', category=UserWarning)
 
 # h2o.init()
 # https://medium.com/tech-vision/random-forest-classification-with-h2o-python-for-beginners-b31f6e4ccf3c
@@ -220,6 +218,7 @@ async def embed(ws, X_train, y, meta, final_model, data='prediction', metric="eu
     if data == 'prediction':
       prediction = final_model.predict_proba(X_train)
       embedding = UMAP(metric=metric, init='random', verbose=True).fit_transform(prediction, y)
+      max_prediction = np.max(prediction, axis=1).reshape(-1, 1)
     elif data == 'leaves':
       leaves = final_model.apply(X_train)
       embedding = UMAP(metric=metric, init='random', verbose=True).fit_transform(leaves, y)
@@ -227,8 +226,8 @@ async def embed(ws, X_train, y, meta, final_model, data='prediction', metric="eu
       embedding = UMAP(metric=metric, init='random', verbose=True).fit_transform(X_train, y)
 
     df_xy = pd.DataFrame(
-            embedding,
-            columns=['x','y'],
+            np.concatenate((embedding, max_prediction), axis=1),
+            columns=['x','y', 'max_prob'],
             index=X_train.index.copy())
     df_plot = pd.concat([df_xy, meta],axis=1)
     await ws.send_json({
