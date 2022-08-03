@@ -169,10 +169,25 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, 
     forest = forest.set_params(n_estimators=i)
     forest = forest.fit(X, y)
     score = forest.score(X, y)
-    conf = confusion_matrix(y, forest.predict(X), normalize='pred') # normalize='pred' to get percentages per row/cohort
     oobError = forest.oob_score_
-    importance_threshold = 0.005
     _log.debug(f'{len(forest.estimators_)}/{total_forest_size} estimators. Score: {oobError}')
+
+    conf = confusion_matrix(y, forest.predict(X), normalize='pred') # normalize='pred' to get percentages per row/cohort
+    
+    
+    prediction = forest.predict_proba(X)
+    max_prediction = np.max(prediction, axis=1).reshape(-1, 1)
+
+    trololo = ['prob_'+str(chtcnt) for chtcnt in np.unique(y).tolist()]+['prob_max']
+
+    df_prediction = pd.DataFrame(
+        np.concatenate((prediction, max_prediction), axis=1),
+        columns=trololo,
+        index=X.index.copy())
+    df_prediction = pd.concat([df_prediction, y],axis=1)
+    prediction_list = list(df_prediction.T.to_dict().values())
+    
+    importance_threshold = 0.005
     importances = [
       {
         'attribute': name[:name.rindex('_')] if '_' in name else name,
@@ -194,7 +209,8 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, 
       "accuracy": score,
       "oobError": oobError,
       "confusionMatrix": conf.tolist(),
-      "importances": importances
+      "importances": importances,
+      "probabilities": prediction_list
     }
     yield response, forest
 
