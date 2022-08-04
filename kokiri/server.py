@@ -94,7 +94,7 @@ async def cmp_meta(websocket: WebSocket):
   cmp_data = await websocket.receive_json()
 
   X_train, y, meta = load_data(cmp_data, 'meta_table')
-  results = rf(X_train, y, X_train.columns.tolist(), 25,
+  results = rf(X_train, y, meta, X_train.columns.tolist(), 25,
     cmp_data["n_estimators"],
     cmp_data["max_depth"],
     cmp_data["min_samples_leaf"], # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
@@ -112,7 +112,7 @@ async def cmp_mutated(websocket: WebSocket):
   cmp_data = await websocket.receive_json()
 
   X_train, y, meta = load_data(cmp_data, 'mutated_table')
-  results = rf(X_train, y, X_train.columns.tolist(), 25,
+  results = rf(X_train, y, meta, X_train.columns.tolist(), 25,
     cmp_data["n_estimators"],
     cmp_data["max_depth"],
     cmp_data["min_samples_leaf"], # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
@@ -150,7 +150,7 @@ def load_data(cmp_data: CmpData, table_name):
   return X_train, y, meta
 
 # never ending generator for our streaming response
-def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, min_samples_leaf=5, remove_unknown=False):
+def rf(X, y, meta, feature_names, batch_size=25, total_forest_size=500, max_depth=40, min_samples_leaf=5, remove_unknown=False):
   params = {
     "class_weight": 'balanced',
     "n_jobs": -1,
@@ -176,16 +176,15 @@ def rf(X, y, feature_names, batch_size=25, total_forest_size=500, max_depth=40, 
     
     
     prediction = forest.predict_proba(X)
-    max_prediction = np.max(prediction, axis=1).reshape(-1, 1)
+    max_prediction = np.max(prediction, axis=1)
+    probabilities = {"probs": prediction.tolist(), "prob_max": max_prediction}
+    df_probs = pd.DataFrame(probabilities, columns=["probs", "prob_max"], index=X.index.copy())
 
-    trololo = ['prob_'+str(chtcnt) for chtcnt in np.unique(y).tolist()]+['prob_max']
-
-    df_prediction = pd.DataFrame(
-        np.concatenate((prediction, max_prediction), axis=1),
-        columns=trololo,
-        index=X.index.copy())
-    df_prediction = pd.concat([df_prediction, y],axis=1)
-    prediction_list = list(df_prediction.T.to_dict().values())
+    df_prediction = pd.concat([df_probs, meta],axis=1)
+    tissue_chts = df_prediction.groupby('tissuename').agg({'cht': lambda cht_no: list(cht_no.map(str))})['cht'] # aggregate to list an parse to string - without turning into string, .agg(list) would also work
+    df_prediction = df_prediction.drop(columns=['cht']).drop_duplicates('tissuename') # remove duplicates and columns already aggregated
+    df_pred_grp = pd.merge(df_prediction, tissue_chts, how='left', on='tissuename')
+    prediction_list = list(df_pred_grp.T.to_dict().values()) # convert to list of dicts, because using JSON becomes a string in frontend
     
     importance_threshold = 0.005
     importances = [
