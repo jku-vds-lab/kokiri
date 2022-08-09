@@ -229,7 +229,8 @@ async def encode_results(ws: WebSocket, data):
 # kudos https://github.com/gdmarmerola/forest-embeddings
 async def embed(ws, X_train, y, meta, final_model, data='prediction', metric="euclidean"):
     await asyncio.sleep(0.1)
-
+    
+    np.random.seed(42)
     if data == 'prediction':
       prediction = final_model.predict_proba(X_train)
       embedding = UMAP(metric=metric, init='random', verbose=True).fit_transform(prediction, y)
