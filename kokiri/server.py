@@ -135,7 +135,7 @@ def load_data(cmp_data: CmpData, table_name):
     frames.append(df)
 
   _log.debug(f'Concat cohort dataframes')
-  df = pd.concat(frames)
+  df = pd.concat(frames, ignore_index=True)
 
   y = df['cht']
   X = df.drop(columns=['tissuename', 'cht']) # drop the target column
