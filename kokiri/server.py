@@ -246,9 +246,10 @@ async def embed(ws, X_train, y, meta, final_model, data='prediction', metric="eu
             columns=['x','y', 'max_prob'],
             index=X_train.index.copy())
     df_plot = pd.concat([df_xy, meta],axis=1)
+    df_plot_list = list(df_plot.T.to_dict().values()) # convert to list of dicts, because using JSON becomes a string in frontend
     await ws.send_json({
       "data": data,
-      "embedding": df_plot.to_json(orient='records')
+      "embedding": df_plot_list
     }, mode='text')
 
 def create_query(con: duckdb.DuckDBPyConnection, cht: int, ids: list[str], exclude: list[str], table_name: str):
