@@ -1,4 +1,4 @@
-Kokiri 🌳 [![Phovea][phovea-image]][phovea-url]
+Kokiri 🌳
 =====================
 
 Kokiri is a visual analytics approach to compare and characterize cohorts.
