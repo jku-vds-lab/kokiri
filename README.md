@@ -1,40 +1,40 @@
-kokiri [![Phovea][phovea-image]][phovea-url] [![NPM version][npm-image]][npm-url]
+Kokiri 🌳 [![Phovea][phovea-image]][phovea-url]
 =====================
 
-Cohort Comparison
+Kokiri is a visual analytics approach to compare and characterize cohorts.
 
-Installation
+Users can interactively compare cohorts by their high dimensional data, explore the driving differences, and characterize the homogeneity and outliers of the cohorts
+
+Kokiri can be utilized to compare any type of cohort. Our focus, however, is on the analysis of genomic data from cancer patients.
+
+🚀 You can try Kokiri yourself at: https://kokiri.jku-vds-lab.at/
+
+![screenshot](media/screenshot.full.png?raw=true "Screenshot")
+
+Learn more about Kokiri by reading the [paper](https://jku-vds-lab.at/publications/2022_kokiri/).  
+For a quick overview of Coral, see our preview video:
+
+[<img src="https://img.youtube.com/vi/vSd3a9J63wQ/maxresdefault.jpg" width=50% height=50%>](https://www.youtube.com/watch?v=vSd3a9J63wQ)
+
+Feedback
 ------------
 
-```
-git clone https://github.com/jku-vds-lab/kokiri.git
-cd kokiri
-npm install
-```
+Your comments and feedback are welcome. Write an email to klaus.eckelt@jku.at and let us know what you think!  
+If you have discovered an issue or have a feature suggestion, feel free to [create an issue on GitHub](https://github.com/Caleydo/kokiri/issues).
 
-Testing
--------
 
-```
-npm test
-```
+Citing Kokiri
+------------
 
-Building
---------
+Klaus Eckelt, Patrick Adelberger, Markus J. Bauer, Thomas Zichner, Marc Streit
+**Kokiri: Random Forest-Based Cohort Comparison and Characterization**
+bioRxiv, 2022. 
 
 ```
-npm run build
+@article{2022_kokiri,
+    title = {Kokiri: Random Forest-Based Cohort Comparison and Characterization},
+    author = {Klaus Eckelt and Patrick Adelberger and Markus J. Bauer and Thomas Zichner and Marc Streit},
+    journal = {bioRxiv},
+    year = {2022}
+}
 ```
-
-
-
-***
-
-<a href="https://caleydo.org"><img src="http://caleydo.org/assets/images/logos/caleydo.svg" align="left" width="200px" hspace="10" vspace="6"></a>
-This repository is part of **[Phovea](http://phovea.caleydo.org/)**, a platform for developing web-based visualization applications. For tutorials, API docs, and more information about the build and deployment process, see the [documentation page](http://phovea.caleydo.org).
-
-
-[phovea-image]: https://img.shields.io/badge/Phovea-Server%20Plugin-10ACDF.svg
-[phovea-url]: https://phovea.caleydo.org
-[npm-image]: https://badge.fury.io/js/kokiri.svg
-[npm-url]: https://npmjs.org/package/kokiri
