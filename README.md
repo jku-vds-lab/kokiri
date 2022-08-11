@@ -14,7 +14,7 @@ Kokiri can be utilized to compare any type of cohort. Our focus, however, is on 
 Learn more about Kokiri by reading the [paper](https://jku-vds-lab.at/publications/2022_kokiri/).  
 For a quick overview of Kokiri, see our preview video:
 
-[<img src="https://img.youtube.com/vi/vSd3a9J63wQ/maxresdefault.jpg" width=50% height=50%>](https://www.youtube.com/watch?v=vSd3a9J63wQ)
+[<img src="https://img.youtube.com/vi/94W9pIsYq9g/maxresdefault.jpg" width=50% height=50%>](https://www.youtube.com/watch?v=94W9pIsYq9g)
 
 Feedback
 ------------
