@@ -85,6 +85,7 @@ class CmpData(BaseModel):
 def root():
   return {"message": "Hello World"}
 
+
 @app.websocket("/kokiri/cmp_meta/")
 async def cmp_meta(websocket: WebSocket):
   await websocket.accept()
@@ -100,7 +101,6 @@ async def cmp_meta(websocket: WebSocket):
   final_model = await encode_results(websocket, results)
   await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
   return 
-
 
 
 @app.websocket("/kokiri/cmp_mutated/")
@@ -145,6 +145,7 @@ def load_data(cmp_data: CmpData, table_name):
   X_train = X.drop(cols_to_drop, axis='columns')
   # X_train= X_train.rename(columns={"tumortype": "Tumor Type"}) to test exclusion
   return X_train, y, meta
+
 
 # never ending generator for our streaming response
 def rf(X, y, meta, feature_names, batch_size=25, total_forest_size=500, max_depth=40, min_samples_leaf=5, remove_unknown=False):
