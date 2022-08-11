@@ -235,6 +235,7 @@ async def embed(ws, X_train, y, meta, final_model, data='prediction', metric="eu
       prediction = final_model.predict_proba(X_train)
       embedding = UMAP(metric=metric, init='random', verbose=True).fit_transform(prediction, y)
       max_prediction = np.max(prediction, axis=1).reshape(-1, 1)
+      predicted = np.argmax(prediction, axis=1).reshape(-1, 1)
     elif data == 'leaves':
       leaves = final_model.apply(X_train)
       embedding = UMAP(metric=metric, init='random', verbose=True).fit_transform(leaves, y)
@@ -242,8 +243,8 @@ async def embed(ws, X_train, y, meta, final_model, data='prediction', metric="eu
       embedding = UMAP(metric=metric, init='random', verbose=True).fit_transform(X_train, y)
 
     df_xy = pd.DataFrame(
-            np.concatenate((embedding, max_prediction), axis=1),
-            columns=['x','y', 'max_prob'],
+            np.concatenate((embedding, max_prediction, predicted), axis=1),
+            columns=['x','y', 'max_prob', 'predicted'],
             index=X_train.index.copy())
     df_plot = pd.concat([df_xy, meta],axis=1)
     df_plot_list = list(df_plot.T.to_dict().values()) # convert to list of dicts, because using JSON becomes a string in frontend
