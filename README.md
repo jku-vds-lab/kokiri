@@ -12,7 +12,7 @@ Kokiri can be utilized to compare any type of cohort. Our focus, however, is on 
 ![screenshot](media/screenshot.full.png?raw=true "Screenshot")
 
 Learn more about Kokiri by reading the [paper](https://jku-vds-lab.at/publications/2022_kokiri/).  
-For a quick overview of Coral, see our preview video:
+For a quick overview of Kokiri, see our preview video:
 
 [<img src="https://img.youtube.com/vi/vSd3a9J63wQ/maxresdefault.jpg" width=50% height=50%>](https://www.youtube.com/watch?v=vSd3a9J63wQ)
 
@@ -26,8 +26,8 @@ If you have discovered an issue or have a feature suggestion, feel free to [crea
 Citing Kokiri
 ------------
 
-Klaus Eckelt, Patrick Adelberger, Markus J. Bauer, Thomas Zichner, Marc Streit
-**Kokiri: Random Forest-Based Cohort Comparison and Characterization**
+Klaus Eckelt, Patrick Adelberger, Markus J. Bauer, Thomas Zichner, Marc Streit  
+**Kokiri: Random Forest-Based Cohort Comparison and Characterization**  
 bioRxiv, 2022. 
 
 ```
