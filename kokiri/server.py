@@ -187,6 +187,7 @@ def rf(X, y, meta, feature_names, batch_size=25, total_forest_size=500, max_dept
     prediction_list = list(df_pred_grp.T.to_dict().values()) # convert to list of dicts, because using JSON becomes a string in frontend
     
     importance_threshold = 0.005
+    estimators_threshold = 20
     importances = [
       {
         'attribute': name[:name.rindex('_')] if '_' in name else name,
@@ -196,10 +197,10 @@ def rf(X, y, meta, feature_names, batch_size=25, total_forest_size=500, max_dept
           {
             'cht': '#'+str(cht),
              # sum of 1s in column divided by cohort size
-            'value': round(X[name][(y == cht) &(X[name]>=0)].sum()/(X[name].abs()[y == cht].sum() if remove_unknown else (y==cht).sum()), 3) if i > 100 and round(importance, 3) >= importance_threshold else 1 # todo handle meta and mutated cases
+            'value': round(X[name][(y == cht) &(X[name]>=0)].sum()/(X[name].abs()[y == cht].sum() if remove_unknown else (y==cht).sum()), 3) if i > estimators_threshold and round(importance, 3) >= importance_threshold else 1 # todo handle meta and mutated cases
           } for cht in np.unique(y).tolist()
         ],
-        'random': True if i <= 100 or round(importance, 3) < importance_threshold else False,
+        'random': True if i <= estimators_threshold or round(importance, 3) < importance_threshold else False,
         'type': 'cat' if X[name].isin([-1,0,1]).all() else 'num'
       } for name,importance in zip(feature_names, forest.feature_importances_)
     ]
