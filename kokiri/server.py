@@ -1,6 +1,6 @@
 # TODO patch sklearn if necessary https://intel.github.io/scikit-learn-intelex/ (or use skranger)
-from .settings import KokiriSettings
-#from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
+#from .settings import KokiriSettings
+from settings import KokiriSettings # REPLACE IMPORT FOR DEBUGGING
 
 import uvicorn # For debugging
 from typing import Dict, Optional
@@ -28,9 +28,6 @@ if __name__ != "__main__":
   # We are currently training on the whole dataset, so we can ignore the error
   warnings.simplefilter('ignore', category=UserWarning)
 
-# h2o.init()
-# https://medium.com/tech-vision/random-forest-classification-with-h2o-python-for-beginners-b31f6e4ccf3c
-# https://www.kaggle.com/code/nanomathias/h2o-distributed-random-forest-starter/script
 
 import logging
 _log = logging.getLogger(__name__)
@@ -174,7 +171,6 @@ def rf(X, y, meta, feature_names, batch_size=25, total_forest_size=500, max_dept
 
     conf = confusion_matrix(y, forest.predict(X), normalize='pred') # normalize='pred' to get percentages per row/cohort
     
-    
     prediction = forest.predict_proba(X)
     max_prediction = np.max(prediction, axis=1)
     probabilities = {"probs": prediction.tolist(), "prob_max": max_prediction}
@@ -214,6 +210,7 @@ def rf(X, y, meta, feature_names, batch_size=25, total_forest_size=500, max_dept
     }
     yield response, forest
 
+
 async def encode_results(ws: WebSocket, data):
   final_model = None
   try:
@@ -224,7 +221,6 @@ async def encode_results(ws: WebSocket, data):
   except asyncio.CancelledError:
     _log.info("Request was cancelled")
   return final_model
-
 
 
 # kudos https://github.com/gdmarmerola/forest-embeddings
@@ -253,6 +249,7 @@ async def embed(ws, X_train, y, meta, final_model, data='prediction', metric="eu
       "data": data,
       "embedding": df_plot_list
     }, mode='text')
+
 
 def create_query(con: duckdb.DuckDBPyConnection, cht: int, ids: list[str], exclude: list[str], table_name: str):
   # get onehot encoded column names
@@ -289,6 +286,7 @@ def create_query(con: duckdb.DuckDBPyConnection, cht: int, ids: list[str], exclu
 
   #_log.debug(f'Query of cohort {cht}: {query}')
   return query
+
 
 if __name__ == "__main__":
   uvicorn.run(app, host="0.0.0.0", port=9666)
