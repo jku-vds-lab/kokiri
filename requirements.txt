@@ -1,6 +1,6 @@
 fastapi>=0.77.1
 uvicorn[standard]==0.17.6
-duckdb>=0.3.4
+duckdb==0.6.*
 numpy>=1.2.0
 pandas>=1.4.0
 scikit-learn>=1.0.2
