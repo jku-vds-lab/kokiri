@@ -17,6 +17,7 @@ import duckdb
 
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn.metrics import confusion_matrix
+from sklearn.impute import KNNImputer
 
 from umap import UMAP
 
@@ -67,6 +68,7 @@ class CmpData(BaseModel):
   n_estimators: Optional[int] = None
   max_depth: Optional[int] = None
   min_samples_leaf: Optional[int] = None
+  impute: bool = False
   ids: conlist( # list of cohorts # TODO replace with list of cohort IDs
     conlist(Dict, min_items=1), # list of item (must not be empty)
     min_items=2 # at least two cohorts are needed to compare
@@ -109,6 +111,40 @@ async def cmp_mutated(websocket: WebSocket):
   cmp_data = await websocket.receive_json()
 
   X_train, y, meta = load_data(cmp_data, 'mutated_table')
+
+  if cmp_data["impute"]:
+    # group X_train by cohort label (y value)
+    # check ratio  of zeros in each set
+    zero_values_count = X_train.groupby(y).apply(lambda x: (x == 0).sum() / len(x))
+
+    # print the ratio of zeros for column SMAD4
+    # print("number of zeros for column SMAD4: ", zero_values_count['SMAD4'])
+    # ones = X_train.groupby(y).apply(lambda x: (x == 1).sum() / len(x))
+    # print("number of 1 for column SMAD4: ", ones['SMAD4'])
+    # minues_ones = X_train.groupby(y).apply(lambda x: (x == -1).sum() / len(x))
+    # print("number of -1 for column SMAD4: ", minues_ones['SMAD4'])
+
+    # drop all columns where more than 50% of the values in any group of y are zero
+    X_train_filtered = X_train.drop(zero_values_count.columns[zero_values_count.gt(0.5, axis=0).any()], axis=1)
+    # print all droppped columns sorted alphabetically
+    print(f"dropped {len(X_train.columns)-len(X_train_filtered.columns)} of {len(X_train.columns)} columns. \n Dropped:", sorted(set(X_train.columns) - set(X_train_filtered.columns)))
+    # print number of columns in x train
+
+    # fill up missing values with sklearns knn imputer
+    # use just one neighbor, because it calculates the mean which does not make sense with binary data (-1,1)
+    # TODO implement custom function that uses the mode, see https://datascience.stackexchange.com/q/92308
+    imputer = KNNImputer(missing_values=0, n_neighbors=1, weights="distance") 
+    # TODO impute within each cohort, possibly using a custom distance metric (different cohort, high distance, same cohort, low distance)
+    X_train_filtered = pd.DataFrame(imputer.fit_transform(X_train_filtered), columns=X_train_filtered.columns)
+
+    X_train = X_train_filtered
+    # ones = X_train.groupby(y).apply(lambda x: (x == 1).sum() / len(x))
+    # print("number of 1 for column SMAD4 - after imputation: ", ones['SMAD4'])
+    # minues_ones = X_train.groupby(y).apply(lambda x: (x == -1).sum() / len(x))
+    # print("number of -1 for column SMAD4 - after imputation: ", minues_ones['SMAD4'])
+  else:
+    print("skip imputation")
+
   results = rf(X_train, y, meta, X_train.columns.tolist(), 25,
     cmp_data["n_estimators"],
     cmp_data["max_depth"],
@@ -117,7 +153,7 @@ async def cmp_mutated(websocket: WebSocket):
   )
   final_model = await encode_results(websocket, results)
   await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
-  return 
+  return
 
 
 def load_data(cmp_data: CmpData, table_name):
