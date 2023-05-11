@@ -21,3 +21,4 @@ __pycache__/
 .tox
 .cache
 data/db_exports/
+env/
