@@ -32,9 +32,11 @@ bioRxiv, 2022.
 
 ```
 @article{2022_kokiri,
-    title = {Kokiri: Random Forest-Based Cohort Comparison and Characterization},
+    title = {Kokiri: Random-Forest-Based Comparison and Characterization of Cohorts},
     author = {Klaus Eckelt and Patrick Adelberger and Markus J. Bauer and Thomas Zichner and Marc Streit},
-    journal = {bioRxiv},
+    journal = {IEEE VIS Workshop on Visualization in Biomedical AI},
+    doi = {10.1101/2022.08.16.503622},
+    url = {https://www.biorxiv.org/content/10.1101/2022.08.16.503622},
     year = {2022}
 }
 ```
