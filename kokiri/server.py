@@ -1,6 +1,6 @@
 # TODO patch sklearn if necessary https://intel.github.io/scikit-learn-intelex/ (or use skranger)
-from .settings import KokiriSettings
-#from settings import KokiriSettings # IMPORT FOR DEBUGGING
+#from .settings import KokiriSettings
+from settings import KokiriSettings # IMPORT FOR DEBUGGING
 
 import uvicorn # For debugging
 from typing import Dict, Optional
@@ -20,6 +20,9 @@ from sklearn.metrics import confusion_matrix
 from sklearn.impute import KNNImputer
 
 from umap import UMAP
+
+# from coral.coral.sql_query_mapper import QueryElements
+# from flask import Flask, abort, jsonify, request
 
 import warnings
 if __name__ != "__main__":
@@ -85,8 +88,56 @@ class CmpData(BaseModel):
 
 @app.get("/kokiri")
 def root():
-  return {"message": "Hello World"}
+  return {"message": "Hello World2"}
 
+
+# @app.websocket("/kokiri/cmp_meta/")
+# async def cmp_meta(websocket: WebSocket):
+#   await websocket.accept()
+#   cmp_data = await websocket.receive_json()
+
+#   X_train, y, meta = load_data(cmp_data, 'meta_table')
+#   results = rf(X_train, y, meta, X_train.columns.tolist(), 25,
+#     cmp_data["n_estimators"],
+#     cmp_data["max_depth"],
+#     cmp_data["min_samples_leaf"], # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
+#     False
+#   )
+#   final_model = await encode_results(websocket, results)
+#   await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
+#   return
+
+
+# @app.get("/kokiri/recommendSplit")
+# def recommendSplit():
+#     error_msg = """Paramerter missing or wrong!
+#     For the {route} query the following parameters are needed:
+#     - name: name of the cohort
+#     - isInitial: 0 if it has a parent cohort, 1 if it is the initial table
+#     - previous: id of the previous cohort, -1 for the initial cohort
+#     - database: database of the entitiy tale
+#     - schema: schema of the entity table
+#     - table: table of the entitiy""".format(
+#         route="create"
+#     )
+
+#     try:
+#         query = QueryElements()
+#         cohort = query.get_cohort_from_db(
+#             request.values, error_msg
+#         )  # get parent cohort
+#         new_cohort = query.create_cohort_num_filtered(
+#             request.values, cohort, error_msg
+#         )  # get filtered cohort from args and cohort
+#         return query.add_cohort_to_db(new_cohort)  # save new cohort into DB
+#     except RuntimeError as error:
+#         abort(400, error)
+
+
+# @app.route("/recommendSplit", methods=["GET", "POST"])
+# # @login_required
+# def recommend_split():
+#   return "asdf"
 
 @app.websocket("/kokiri/cmp_meta/")
 async def cmp_meta(websocket: WebSocket):
@@ -102,7 +153,7 @@ async def cmp_meta(websocket: WebSocket):
   )
   final_model = await encode_results(websocket, results)
   await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
-  return 
+  return
 
 
 @app.websocket("/kokiri/cmp_mutated/")
@@ -133,7 +184,7 @@ async def cmp_mutated(websocket: WebSocket):
     # fill up missing values with sklearns knn imputer
     # use just one neighbor, because it calculates the mean which does not make sense with binary data (-1,1)
     # TODO implement custom function that uses the mode, see https://datascience.stackexchange.com/q/92308
-    imputer = KNNImputer(missing_values=0, n_neighbors=1, weights="distance") 
+    imputer = KNNImputer(missing_values=0, n_neighbors=1, weights="distance")
     # TODO impute within each cohort, possibly using a custom distance metric (different cohort, high distance, same cohort, low distance)
     X_train_filtered = pd.DataFrame(imputer.fit_transform(X_train_filtered), columns=X_train_filtered.columns)
 
@@ -159,7 +210,7 @@ async def cmp_mutated(websocket: WebSocket):
 def load_data(cmp_data: CmpData, table_name):
   con = duckdb.connect(database=config.dbName, read_only=True) # TODO check if this is the way to go for multi thread access (cursors were mentioned in a blog psot)
   frames = []
-  
+
   _log.debug(f'Fetching data for {len(cmp_data["ids"])} cohorts')
   for i, cht_ids in enumerate(cmp_data["ids"]):
     query = create_query(con, i, cht_ids, ['tdpid'] + cmp_data["exclude"], table_name)
@@ -207,7 +258,7 @@ def rf(X, y, meta, feature_names, batch_size=25, total_forest_size=500, max_dept
     _log.debug(f'{len(forest.estimators_)}/{total_forest_size} estimators. Score: {oobError}')
 
     conf = confusion_matrix(y, forest.predict(X), normalize='pred') # normalize='pred' to get percentages per row/cohort
-    
+
     prediction = forest.predict_proba(X)
     max_prediction = np.max(prediction, axis=1)
     probabilities = {"probs": prediction.tolist(), "prob_max": max_prediction}
@@ -218,7 +269,7 @@ def rf(X, y, meta, feature_names, batch_size=25, total_forest_size=500, max_dept
     df_prediction = df_prediction.drop(columns=['cht']).drop_duplicates('tissuename') # remove duplicates and columns already aggregated
     df_pred_grp = pd.merge(df_prediction, tissue_chts, how='left', on='tissuename')
     prediction_list = list(df_pred_grp.T.to_dict().values()) # convert to list of dicts, because using JSON becomes a string in frontend
-    
+
     importance_threshold = 0.005
     estimators_threshold = 20
     importances = [
@@ -263,7 +314,7 @@ async def encode_results(ws: WebSocket, data):
 # kudos https://github.com/gdmarmerola/forest-embeddings
 async def embed(ws, X_train, y, meta, final_model, data='prediction', metric="euclidean"):
     await asyncio.sleep(0.1)
-    
+
     np.random.seed(42)
     if data == 'prediction':
       prediction = final_model.predict_proba(X_train)
@@ -294,10 +345,10 @@ def create_query(con: duckdb.DuckDBPyConnection, cht: int, ids: list[str], exclu
   table_info = con.execute(column_query).df()
   all_columns = table_info['column_name']
   excluded_db_columns_mask = all_columns.str.startswith(tuple(exclude)) # matches single feature columns and one hot encoded columns (e.g. 'age' and 'tumortype_*)
-  
+
   tissue_list = map(lambda d: d['tissuename'], ids)
   id_string_list = separator.join(f"'{id}'" for id in tissue_list)
-  
+
   if excluded_db_columns_mask.sum()/all_columns.size > 0.5:
     # more than half of the columns are excluded
     # --> select remaining columns
@@ -314,7 +365,7 @@ def create_query(con: duckdb.DuckDBPyConnection, cht: int, ids: list[str], exclu
     # exlucde = https://github.com/duckdb/duckdb/pull/2276
     exclude_db_columns = all_columns[excluded_db_columns_mask].tolist()
     exclude_sql = separator.join(f'"{col}"' for col in exclude_db_columns) # column names need to be quoted
-    _log.debug(f'exclude: {exclude_sql}')  
+    _log.debug(f'exclude: {exclude_sql}')
     query =  "SELECT * " + \
       ("" if not exclude_sql else f"EXCLUDE ({exclude_sql}) ") + \
       f", {cht} AS cht " + \
