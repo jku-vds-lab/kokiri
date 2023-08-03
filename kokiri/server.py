@@ -1,11 +1,11 @@
 # TODO patch sklearn if necessary https://intel.github.io/scikit-learn-intelex/ (or use skranger)
-#from .settings import KokiriSettings
-from settings import KokiriSettings # IMPORT FOR DEBUGGING
+from .settings import KokiriSettings
+# from settings import KokiriSettings # IMPORT FOR DEBUGGING
 
 import uvicorn # For debugging
 from typing import Dict, Optional
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Request
 from fastapi import __version__ as fastapi_version
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, conlist
@@ -21,8 +21,9 @@ from sklearn.impute import KNNImputer
 
 from umap import UMAP
 
+# trying to import from coral
 # from coral.coral.sql_query_mapper import QueryElements
-# from flask import Flask, abort, jsonify, request
+from coral.coral.sql_query_mapper import QueryElements
 
 import warnings
 if __name__ != "__main__":
@@ -48,6 +49,13 @@ separator = ', '
 
 app = FastAPI()
 _log.debug(f"fastapi version: {fastapi_version}")
+
+
+# testing flask instead of fastapi
+# from flask import Flask, abort, jsonify, request
+# from .settings import get_settings
+# app = Flask(__name__)
+# config = get_settings()
 
 origins = [
   "http://localhost",
@@ -108,52 +116,93 @@ def root():
 #   return
 
 
-# @app.get("/kokiri/recommendSplit")
-# def recommendSplit():
-#     error_msg = """Paramerter missing or wrong!
-#     For the {route} query the following parameters are needed:
-#     - name: name of the cohort
-#     - isInitial: 0 if it has a parent cohort, 1 if it is the initial table
-#     - previous: id of the previous cohort, -1 for the initial cohort
-#     - database: database of the entitiy tale
-#     - schema: schema of the entity table
-#     - table: table of the entitiy""".format(
-#         route="create"
-#     )
-
-#     try:
-#         query = QueryElements()
-#         cohort = query.get_cohort_from_db(
-#             request.values, error_msg
-#         )  # get parent cohort
-#         new_cohort = query.create_cohort_num_filtered(
-#             request.values, cohort, error_msg
-#         )  # get filtered cohort from args and cohort
-#         return query.add_cohort_to_db(new_cohort)  # save new cohort into DB
-#     except RuntimeError as error:
-#         abort(400, error)
-
-
-# @app.route("/recommendSplit", methods=["GET", "POST"])
-# # @login_required
-# def recommend_split():
-#   return "asdf"
-
-@app.websocket("/kokiri/cmp_meta/")
-async def cmp_meta(websocket: WebSocket):
-  await websocket.accept()
-  cmp_data = await websocket.receive_json()
-
-  X_train, y, meta = load_data(cmp_data, 'meta_table')
-  results = rf(X_train, y, meta, X_train.columns.tolist(), 25,
-    cmp_data["n_estimators"],
-    cmp_data["max_depth"],
-    cmp_data["min_samples_leaf"], # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
-    False
+@app.get("/kokiri/recommendSplit")
+async def recommend_split(request: Request):
+  # error msg is wrong, it is based on the cohortData route
+  # cohortData?cohortId=2&attribute=gender
+  error_msg = """Paramerter missing or wrong!
+    For the {route} query the following parameter is needed:
+    - cohortId: id of the cohort
+    There is also one optional parameter:
+    - attribute: one column of the entity table""".format(
+    route="cohortData"
   )
-  final_model = await encode_results(websocket, results)
-  await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
-  return
+
+  # print("print test)") # is printed in the logs in docker
+  # _log.debug("log debug test") # is printed in the logs with the DEBUG info
+  # return "return test" # does not show in the log
+  _log.debug("request.values %s", request.values)
+
+
+
+  query = QueryElements()
+  # _log.debug("query")
+  # _log.debug(query)
+
+  cohort = query.get_cohort_from_db(request.values, error_msg)  # get parent cohort
+  # _log.debug("cohort %s", cohort)
+
+  sql_text = query.get_cohort_data_sql(request.values, cohort)  # get sql statement to retrieve data
+  # _log.debug("sql_text")
+  # _log.debug(sql_text)
+
+  query_results = query.execute_sql_query(sql_text, cohort.entity_database)
+  # _log.debug("query_results %s ", query_results)
+  # _log.debug("query_results.get_json() %s ", query_results.get_json()[0:3]) # returns the first row of the query results, e.g. {'age': 67.0, 'tissuename': 'GENIE-UHN-AGI523559-BM1'}
+  # so I have the tissuenames of that cohort (TODO: there surely is a better way to get the tissuenames, without having to do this query, convert the response back to a dict etc etc)
+  # I also have the attribute that is used for the cohort (e.g. age), so I can get the values of that attribute for each tissue and then cluster them
+  # get the values of the attribute for each tissue
+  # _log.debug("request.values['attribute'] %s ", request.values['attribute']) # returns the keys of the first row of the query results, e.g. dict_keys(['age', 'tissuename'])
+  # get all the values of query_results.get_json() for the attribute
+  # remove all none values
+  tissues = [item for item in query_results.get_json() if item[request.values['attribute']] is not None]
+  _log.debug("tissues %s", tissues)
+
+  # fit the clusterer based on the attribute values
+  _log.debug("type(tissues) %s", type(tissues))
+  # convert the list tissues to a pandas dataframe
+  tissues_df = pd.DataFrame(tissues)
+  # get only the first column of tissues_df
+  tissues_attribute_df = tissues_df.iloc[:, 0].values.reshape(-1, 1)
+  _log.debug("tissues_attribute_df %s", tissues_attribute_df.shape)
+  clusterer = hdbscan.HDBSCAN(min_cluster_size=round(tissues_attribute_df.shape[0]/10), gen_min_span_tree=True) # one tenth of the number of tissues, to get a reasonable amount of clusters
+  clusterer.fit(tissues_attribute_df)
+  # get the labels of the clusters
+  labels = clusterer.labels_
+  _log.debug("labels %s", labels)
+  # get the number of clusters
+  n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+  _log.debug("n_clusters_ %s", n_clusters_)
+
+  return query_results  # execute sql statement
+
+  return "qwer"
+
+
+
+# # this produced following error: recommend_split2() takes 0 positional arguments but 1 was given
+# nvm flask, just use fastapi
+# @app.route("/kokiri/recommendSplitFlask", methods=["GET", "POST"])
+# # @login_required
+# def recommendSplitFlask():
+#   _log.debug("recommendSplitFlask kokiri")
+#   return "asdf"
+#
+# @app.websocket("/kokiri/cmp_meta/")
+# async def cmp_meta(websocket: WebSocket):
+#   await websocket.accept()
+#   cmp_data = await websocket.receive_json()
+#
+#   X_train, y, meta = load_data(cmp_data, 'meta_table')
+#   results = rf(X_train, y, meta, X_train.columns.tolist(), 25,
+#     cmp_data["n_estimators"],
+#     cmp_data["max_depth"],
+#     cmp_data["min_samples_leaf"], # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
+#     False
+#   )
+#   final_model = await encode_results(websocket, results)
+#   await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
+#   return
 
 
 @app.websocket("/kokiri/cmp_mutated/")
