@@ -1,6 +1,15 @@
 # TODO patch sklearn if necessary https://intel.github.io/scikit-learn-intelex/ (or use skranger)
-from .settings import KokiriSettings
-# from settings import KokiriSettings # IMPORT FOR DEBUGGING
+
+DEBUG = False
+
+
+
+import hdbscan
+
+if DEBUG:
+  from settings import KokiriSettings # IMPORT FOR DEBUGGING
+else:
+  from .settings import KokiriSettings
 
 import uvicorn # For debugging
 from typing import Dict, Optional
@@ -21,9 +30,9 @@ from sklearn.impute import KNNImputer
 
 from umap import UMAP
 
-# trying to import from coral
-# from coral.coral.sql_query_mapper import QueryElements
-from coral.coral.sql_query_mapper import QueryElements
+
+
+
 
 import warnings
 if __name__ != "__main__":
@@ -56,6 +65,48 @@ _log.debug(f"fastapi version: {fastapi_version}")
 # from .settings import get_settings
 # app = Flask(__name__)
 # config = get_settings()
+
+
+
+# this only works in debugging, not with docker
+# import coral.coral.sql_tables
+# _log.debug(f"coral.coral.sql_tables: {coral.coral.sql_tables}")
+
+# import coral.coral.sql_query_mapper
+# _log.debug(f"coral.coral.sql_query_mapper: {coral.coral.sql_query_mapper}")
+
+# trying to import from coral
+# from ...coral.coral.sql_query_mapper import QueryElements
+# Since the sql_query_mapper.py and server.py files are located in different top-level packages (coral/coral/coral and coral/kokiri/kokiri), you cannot directly perform a relative import between them.
+
+# from .coral.coral.sql_query_mapper import QueryElements
+
+# from coral.sql_query_mapper import QueryElements
+
+
+
+
+# from phovea.coral.coral.sql_query_mapper import QueryElements
+# import sys
+#
+# for path in sys.path:
+#     print(path)
+#
+# sys.path.append('/phovea/coral/coral')  # Add the desired directory to sys.path
+# print("-----------------------------------------------")
+#
+# for path in sys.path:
+#     print(path)
+
+
+# import sys
+# sys.path.append('/phovea/coral/coral')
+# import coral.coral.sql_tables
+# import coral.coral.sql_query_mapper
+# _log.debug(f"coral.coral.sql_tables: {coral.sql_tables}")
+
+# # Now you can import modules from the specified path
+# from sql_query_mapper import QueryElements
 
 origins = [
   "http://localhost",
@@ -135,46 +186,46 @@ async def recommend_split(request: Request):
 
 
 
-  query = QueryElements()
-  # _log.debug("query")
-  # _log.debug(query)
-
-  cohort = query.get_cohort_from_db(request.values, error_msg)  # get parent cohort
-  # _log.debug("cohort %s", cohort)
-
-  sql_text = query.get_cohort_data_sql(request.values, cohort)  # get sql statement to retrieve data
-  # _log.debug("sql_text")
-  # _log.debug(sql_text)
-
-  query_results = query.execute_sql_query(sql_text, cohort.entity_database)
-  # _log.debug("query_results %s ", query_results)
-  # _log.debug("query_results.get_json() %s ", query_results.get_json()[0:3]) # returns the first row of the query results, e.g. {'age': 67.0, 'tissuename': 'GENIE-UHN-AGI523559-BM1'}
-  # so I have the tissuenames of that cohort (TODO: there surely is a better way to get the tissuenames, without having to do this query, convert the response back to a dict etc etc)
-  # I also have the attribute that is used for the cohort (e.g. age), so I can get the values of that attribute for each tissue and then cluster them
-  # get the values of the attribute for each tissue
-  # _log.debug("request.values['attribute'] %s ", request.values['attribute']) # returns the keys of the first row of the query results, e.g. dict_keys(['age', 'tissuename'])
-  # get all the values of query_results.get_json() for the attribute
-  # remove all none values
-  tissues = [item for item in query_results.get_json() if item[request.values['attribute']] is not None]
-  _log.debug("tissues %s", tissues)
-
-  # fit the clusterer based on the attribute values
-  _log.debug("type(tissues) %s", type(tissues))
-  # convert the list tissues to a pandas dataframe
-  tissues_df = pd.DataFrame(tissues)
-  # get only the first column of tissues_df
-  tissues_attribute_df = tissues_df.iloc[:, 0].values.reshape(-1, 1)
-  _log.debug("tissues_attribute_df %s", tissues_attribute_df.shape)
-  clusterer = hdbscan.HDBSCAN(min_cluster_size=round(tissues_attribute_df.shape[0]/10), gen_min_span_tree=True) # one tenth of the number of tissues, to get a reasonable amount of clusters
-  clusterer.fit(tissues_attribute_df)
-  # get the labels of the clusters
-  labels = clusterer.labels_
-  _log.debug("labels %s", labels)
-  # get the number of clusters
-  n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-  _log.debug("n_clusters_ %s", n_clusters_)
-
-  return query_results  # execute sql statement
+  # query = QueryElements()
+  # # _log.debug("query")
+  # # _log.debug(query)
+  #
+  # cohort = query.get_cohort_from_db(request.values, error_msg)  # get parent cohort
+  # # _log.debug("cohort %s", cohort)
+  #
+  # sql_text = query.get_cohort_data_sql(request.values, cohort)  # get sql statement to retrieve data
+  # # _log.debug("sql_text")
+  # # _log.debug(sql_text)
+  #
+  # query_results = query.execute_sql_query(sql_text, cohort.entity_database)
+  # # _log.debug("query_results %s ", query_results)
+  # # _log.debug("query_results.get_json() %s ", query_results.get_json()[0:3]) # returns the first row of the query results, e.g. {'age': 67.0, 'tissuename': 'GENIE-UHN-AGI523559-BM1'}
+  # # so I have the tissuenames of that cohort (TODO: there surely is a better way to get the tissuenames, without having to do this query, convert the response back to a dict etc etc)
+  # # I also have the attribute that is used for the cohort (e.g. age), so I can get the values of that attribute for each tissue and then cluster them
+  # # get the values of the attribute for each tissue
+  # # _log.debug("request.values['attribute'] %s ", request.values['attribute']) # returns the keys of the first row of the query results, e.g. dict_keys(['age', 'tissuename'])
+  # # get all the values of query_results.get_json() for the attribute
+  # # remove all none values
+  # tissues = [item for item in query_results.get_json() if item[request.values['attribute']] is not None]
+  # _log.debug("tissues %s", tissues)
+  #
+  # # fit the clusterer based on the attribute values
+  # _log.debug("type(tissues) %s", type(tissues))
+  # # convert the list tissues to a pandas dataframe
+  # tissues_df = pd.DataFrame(tissues)
+  # # get only the first column of tissues_df
+  # tissues_attribute_df = tissues_df.iloc[:, 0].values.reshape(-1, 1)
+  # _log.debug("tissues_attribute_df %s", tissues_attribute_df.shape)
+  # clusterer = hdbscan.HDBSCAN(min_cluster_size=round(tissues_attribute_df.shape[0]/10), gen_min_span_tree=True) # one tenth of the number of tissues, to get a reasonable amount of clusters
+  # clusterer.fit(tissues_attribute_df)
+  # # get the labels of the clusters
+  # labels = clusterer.labels_
+  # _log.debug("labels %s", labels)
+  # # get the number of clusters
+  # n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+  # _log.debug("n_clusters_ %s", n_clusters_)
+  #
+  # return query_results  # execute sql statement
 
   return "qwer"
 
