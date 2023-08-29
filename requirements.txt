@@ -5,3 +5,4 @@ numpy>=1.2.0
 pandas>=1.4.0
 scikit-learn>=1.0.2
 umap-learn>=0.5.3
+coral@git+https://github.com/Caleydo/coral.git@comparison_2023#egg=coral

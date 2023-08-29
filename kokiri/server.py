@@ -30,6 +30,8 @@ from sklearn.impute import KNNImputer
 
 from umap import UMAP
 
+# import coral
+
 
 
 
@@ -80,7 +82,6 @@ _log.debug(f"fastapi version: {fastapi_version}")
 # Since the sql_query_mapper.py and server.py files are located in different top-level packages (coral/coral/coral and coral/kokiri/kokiri), you cannot directly perform a relative import between them.
 
 # from .coral.coral.sql_query_mapper import QueryElements
-
 # from coral.sql_query_mapper import QueryElements
 
 
