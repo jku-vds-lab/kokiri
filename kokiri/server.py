@@ -151,21 +151,21 @@ def root():
   return {"message": "Hello World2"}
 
 
-# @app.websocket("/kokiri/cmp_meta/")
-# async def cmp_meta(websocket: WebSocket):
-#   await websocket.accept()
-#   cmp_data = await websocket.receive_json()
+@app.websocket("/kokiri/cmp_meta/")
+async def cmp_meta(websocket: WebSocket):
+  await websocket.accept()
+  cmp_data = await websocket.receive_json()
 
-#   X_train, y, meta = load_data(cmp_data, 'meta_table')
-#   results = rf(X_train, y, meta, X_train.columns.tolist(), 25,
-#     cmp_data["n_estimators"],
-#     cmp_data["max_depth"],
-#     cmp_data["min_samples_leaf"], # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
-#     False
-#   )
-#   final_model = await encode_results(websocket, results)
-#   await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
-#   return
+  X_train, y, meta = load_data(cmp_data, 'meta_table')
+  results = rf(X_train, y, meta, X_train.columns.tolist(), 25,
+    cmp_data["n_estimators"],
+    cmp_data["max_depth"],
+    cmp_data["min_samples_leaf"], # minimum size of a leaf (min_samples_split is similar, but can split, e.g., 10 patients into groups of 9 and 1)
+    False
+  )
+  final_model = await encode_results(websocket, results)
+  await embed(websocket, X_train, y, meta, final_model, 'prediction', 'euclidean')
+  return
 
 
 @app.get("/kokiri/recommendSplit")
